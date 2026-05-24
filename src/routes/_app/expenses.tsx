@@ -24,6 +24,7 @@ function ExpensesPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState(CATEGORIES[0]);
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ["expenses", user!.id],
@@ -64,7 +65,7 @@ function ExpensesPage() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     create.mutate({
-      category: String(fd.get("category")),
+      category,
       description: String(fd.get("description") || ""),
       amount: Number(fd.get("amount") || 0),
     });
@@ -88,13 +89,12 @@ function ExpensesPage() {
               <form onSubmit={onSubmit} className="space-y-3">
                 <div className="space-y-1.5">
                   <Label>Catégorie</Label>
-                  <Select name="category" defaultValue="Achat marchandise">
+                  <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <input type="hidden" name="category" />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="amount">Montant (FCFA)</Label>

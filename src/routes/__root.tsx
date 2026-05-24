@@ -56,8 +56,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Teranga — Gestion de boutique" },
+      { title: "Teral" },
       { name: "description", content: "Gérez votre boutique au Sénégal: stock, ventes, dépenses." },
+      { property: "og:title", content: "Teral" },
+      { name: "twitter:title", content: "Teral" },
+      { property: "og:description", content: "Gérez votre boutique au Sénégal: stock, ventes, dépenses." },
+      { name: "twitter:description", content: "Gérez votre boutique au Sénégal: stock, ventes, dépenses." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/34c7d084-fa16-4f97-b9ff-863a519077c3" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/34c7d084-fa16-4f97-b9ff-863a519077c3" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:type", content: "website" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store, HandCoins } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ const nav = [
   { to: "/products", label: "Produits", icon: Package },
   { to: "/sales", label: "Ventes", icon: Receipt },
   { to: "/expenses", label: "Dépenses", icon: Wallet },
+  { to: "/debts", label: "Dettes", icon: HandCoins },
 ] as const;
 
 function NavList({ onClick }: { onClick?: () => void }) {

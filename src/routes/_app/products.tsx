@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Pencil, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,12 +23,43 @@ type Product = {
   price: number; cost: number; stock: number; low_stock_threshold: number;
 };
 
+function generateSKU(name: string): string {
+  const base = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .substring(0, 20);
+  if (!base) return "";
+  const suffix = Math.floor(100 + Math.random() * 900);
+  return `${base}-${suffix}`;
+}
+
 function ProductsPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [search, setSearch] = useState("");
+
+  const [formName, setFormName] = useState("");
+  const skuInputRef = useRef<HTMLInputElement>(null);
+  const skuTouched = useRef(false);
+
+  useEffect(() => {
+    if (open) {
+      if (!editing) {
+        setFormName("");
+        skuTouched.current = false;
+        if (skuInputRef.current) skuInputRef.current.value = "";
+      } else {
+        setFormName(editing.name);
+        skuTouched.current = true;
+        if (skuInputRef.current) skuInputRef.current.value = editing.sku ?? "";
+      }
+    }
+  }, [open, editing]);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products", user!.id],
@@ -79,6 +110,14 @@ function ProductsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setFormName(val);
+    if (!editing && !skuTouched.current && skuInputRef.current) {
+      skuInputRef.current.value = generateSKU(val);
+    }
+  };
+
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -114,9 +153,9 @@ function ProductsPage() {
               <DialogHeader><DialogTitle>{editing ? "Modifier" : "Nouveau"} produit</DialogTitle></DialogHeader>
               <form onSubmit={onSubmit} className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Nom" name="name" defaultValue={editing?.name} required />
+                  <Field label="Nom" name="name" value={formName} onChange={handleNameChange} required />
                   <Field label="Catégorie" name="category" defaultValue={editing?.category ?? ""} placeholder="Boissons, Riz..." />
-                  <Field label="Référence (SKU)" name="sku" defaultValue={editing?.sku ?? ""} />
+                  <Field label="Référence (SKU)" name="sku" ref={skuInputRef} onChange={() => { skuTouched.current = true; }} />
                   <Field label="Stock" name="stock" type="number" defaultValue={editing?.stock ?? 0} required />
                   <Field label="Prix de vente (FCFA)" name="price" type="number" defaultValue={editing?.price ?? 0} required />
                   <Field label="Coût d'achat (FCFA)" name="cost" type="number" defaultValue={editing?.cost ?? 0} />
@@ -188,11 +227,15 @@ function ProductsPage() {
   );
 }
 
-function Field({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={props.name}>{label}</Label>
-      <Input id={props.name} {...props} />
-    </div>
-  );
-}
+const Field = React.forwardRef<HTMLInputElement, { label: string } & React.InputHTMLAttributes<HTMLInputElement>>(
+  ({ label, ...props }, ref) => {
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={props.name}>{label}</Label>
+        <Input id={props.name} ref={ref} {...props} />
+      </div>
+    );
+  },
+);
+Field.displayName = "Field";
+

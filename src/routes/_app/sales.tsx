@@ -95,50 +95,77 @@ function SalesPage() {
         title="Ventes"
         subtitle={`Aujourd'hui: ${formatFCFA(todayTotal)}`}
         action={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-emerald text-primary-foreground"><Plus className="h-4 w-4" /> Nouvelle vente</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Enregistrer une vente</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label>Produit</Label>
-                  <Select value={productId} onValueChange={(v) => { setProductId(v); setUnitPrice(""); }}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner un produit" /></SelectTrigger>
-                    <SelectContent>
-                      {products.length === 0 && <div className="p-3 text-xs text-muted-foreground">Aucun produit. Créez-en d'abord.</div>}
-                      {products.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} — {formatFCFA(p.price)} (stock: {p.stock})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setScanOpen(true)}>
+              <ScanLine className="h-4 w-4" /> Scanner
+            </Button>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-emerald text-primary-foreground"><Plus className="h-4 w-4" /> Nouvelle vente</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Enregistrer une vente</DialogTitle></DialogHeader>
+                <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <Label>Quantité</Label>
-                    <Input type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value)))} />
+                    <Label>Produit</Label>
+                    <div className="flex gap-2">
+                      <Select value={productId} onValueChange={(v) => { setProductId(v); setUnitPrice(""); }}>
+                        <SelectTrigger><SelectValue placeholder="Sélectionner un produit" /></SelectTrigger>
+                        <SelectContent>
+                          {products.length === 0 && <div className="p-3 text-xs text-muted-foreground">Aucun produit. Créez-en d'abord.</div>}
+                          {products.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name} — {formatFCFA(p.price)} (stock: {p.stock})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" variant="outline" size="icon" onClick={() => setScanOpen(true)} title="Scanner">
+                        <ScanLine className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Prix unitaire (FCFA)</Label>
-                    <Input type="number" placeholder={selected ? String(selected.price) : ""} value={unitPrice} onChange={(e) => setUnitPrice(e.target.value === "" ? "" : Number(e.target.value))} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Quantité</Label>
+                      <Input type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value)))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Prix unitaire (FCFA)</Label>
+                      <Input type="number" placeholder={selected ? String(selected.price) : ""} value={unitPrice} onChange={(e) => setUnitPrice(e.target.value === "" ? "" : Number(e.target.value))} />
+                    </div>
                   </div>
+                  {selected && (
+                    <Card className="p-4 bg-gradient-emerald text-primary-foreground">
+                      <div className="text-xs opacity-80">Total</div>
+                      <div className="font-display text-3xl font-bold">{formatFCFA(total)}</div>
+                    </Card>
+                  )}
                 </div>
-                {selected && (
-                  <Card className="p-4 bg-gradient-emerald text-primary-foreground">
-                    <div className="text-xs opacity-80">Total</div>
-                    <div className="font-display text-3xl font-bold">{formatFCFA(total)}</div>
-                  </Card>
-                )}
-              </div>
-              <DialogFooter>
-                <Button onClick={() => create.mutate()} disabled={create.isPending || !selected}>Valider la vente</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button onClick={() => create.mutate()} disabled={create.isPending || !selected}>Valider la vente</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         }
+      />
+
+      <BarcodeScanner
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onDetected={(code) => {
+          setScanOpen(false);
+          const match = products.find((p) => p.barcode === code);
+          if (match) {
+            setProductId(match.id);
+            setUnitPrice("");
+            setOpen(true);
+            toast.success(`Produit: ${match.name}`);
+          } else {
+            toast.error(`Code "${code}" introuvable. Ajoutez-le à un produit.`);
+          }
+        }}
       />
 
       <Card className="overflow-hidden">

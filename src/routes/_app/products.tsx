@@ -165,6 +165,15 @@ function ProductsPage() {
                   <Field label="Nom" name="name" value={formName} onChange={handleNameChange} required />
                   <Field label="Catégorie" name="category" defaultValue={editing?.category ?? ""} placeholder="Boissons, Riz..." />
                   <Field label="Référence (SKU)" name="sku" ref={skuInputRef} onChange={() => { skuTouched.current = true; }} />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="barcode">Code-barres</Label>
+                    <div className="flex gap-2">
+                      <Input id="barcode" name="barcode" ref={barcodeInputRef} placeholder="EAN-13, UPC..." />
+                      <Button type="button" variant="outline" size="icon" onClick={() => setScanOpen(true)} title="Scanner">
+                        <ScanLine className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                   <Field label="Stock" name="stock" type="number" defaultValue={editing?.stock ?? 0} required />
                   <Field label="Prix de vente (FCFA)" name="price" type="number" defaultValue={editing?.price ?? 0} required />
                   <Field label="Coût d'achat (FCFA)" name="cost" type="number" defaultValue={editing?.cost ?? 0} />

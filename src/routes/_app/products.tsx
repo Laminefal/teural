@@ -43,9 +43,11 @@ function ProductsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [search, setSearch] = useState("");
+  const [scanOpen, setScanOpen] = useState(false);
 
   const [formName, setFormName] = useState("");
   const skuInputRef = useRef<HTMLInputElement>(null);
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
   const skuTouched = useRef(false);
 
   useEffect(() => {

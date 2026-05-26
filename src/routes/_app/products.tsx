@@ -131,6 +131,7 @@ function ProductsPage() {
       id: editing?.id,
       name: String(fd.get("name")),
       sku: String(fd.get("sku") || "") || null,
+      barcode: String(fd.get("barcode") || "") || null,
       category: String(fd.get("category") || "") || null,
       price: Number(fd.get("price") || 0),
       cost: Number(fd.get("cost") || 0),
@@ -140,7 +141,9 @@ function ProductsPage() {
   };
 
   const filtered = products.filter((p) =>
-    !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.sku?.toLowerCase().includes(search.toLowerCase()),
+    !search || p.name.toLowerCase().includes(search.toLowerCase())
+      || p.sku?.toLowerCase().includes(search.toLowerCase())
+      || p.barcode?.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (

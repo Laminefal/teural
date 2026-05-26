@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, ScanLine, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { formatFCFA } from "@/lib/format";
 
 export const Route = createFileRoute("/_app/products")({
@@ -19,7 +20,7 @@ export const Route = createFileRoute("/_app/products")({
 });
 
 type Product = {
-  id: string; name: string; sku: string | null; category: string | null;
+  id: string; name: string; sku: string | null; barcode: string | null; category: string | null;
   price: number; cost: number; stock: number; low_stock_threshold: number;
 };
 
@@ -42,9 +43,11 @@ function ProductsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [search, setSearch] = useState("");
+  const [scanOpen, setScanOpen] = useState(false);
 
   const [formName, setFormName] = useState("");
   const skuInputRef = useRef<HTMLInputElement>(null);
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
   const skuTouched = useRef(false);
 
   useEffect(() => {
@@ -53,10 +56,12 @@ function ProductsPage() {
         setFormName("");
         skuTouched.current = false;
         if (skuInputRef.current) skuInputRef.current.value = "";
+        if (barcodeInputRef.current) barcodeInputRef.current.value = "";
       } else {
         setFormName(editing.name);
         skuTouched.current = true;
         if (skuInputRef.current) skuInputRef.current.value = editing.sku ?? "";
+        if (barcodeInputRef.current) barcodeInputRef.current.value = editing.barcode ?? "";
       }
     }
   }, [open, editing]);
@@ -74,14 +79,15 @@ function ProductsPage() {
     mutationFn: async (p: Partial<Product> & { id?: string }) => {
       if (p.id) {
         const { error } = await supabase.from("products").update({
-          name: p.name, sku: p.sku, category: p.category,
+          name: p.name, sku: p.sku, barcode: p.barcode, category: p.category,
           price: p.price, cost: p.cost, stock: p.stock,
           low_stock_threshold: p.low_stock_threshold, updated_at: new Date().toISOString(),
         }).eq("id", p.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("products").insert({
-          user_id: user!.id, name: p.name!, sku: p.sku ?? null, category: p.category ?? null,
+          user_id: user!.id, name: p.name!, sku: p.sku ?? null, barcode: p.barcode ?? null,
+          category: p.category ?? null,
           price: p.price ?? 0, cost: p.cost ?? 0, stock: p.stock ?? 0,
           low_stock_threshold: p.low_stock_threshold ?? 5,
         });
@@ -125,6 +131,7 @@ function ProductsPage() {
       id: editing?.id,
       name: String(fd.get("name")),
       sku: String(fd.get("sku") || "") || null,
+      barcode: String(fd.get("barcode") || "") || null,
       category: String(fd.get("category") || "") || null,
       price: Number(fd.get("price") || 0),
       cost: Number(fd.get("cost") || 0),
@@ -134,7 +141,9 @@ function ProductsPage() {
   };
 
   const filtered = products.filter((p) =>
-    !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.sku?.toLowerCase().includes(search.toLowerCase()),
+    !search || p.name.toLowerCase().includes(search.toLowerCase())
+      || p.sku?.toLowerCase().includes(search.toLowerCase())
+      || p.barcode?.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -156,6 +165,15 @@ function ProductsPage() {
                   <Field label="Nom" name="name" value={formName} onChange={handleNameChange} required />
                   <Field label="Catégorie" name="category" defaultValue={editing?.category ?? ""} placeholder="Boissons, Riz..." />
                   <Field label="Référence (SKU)" name="sku" ref={skuInputRef} onChange={() => { skuTouched.current = true; }} />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="barcode">Code-barres</Label>
+                    <div className="flex gap-2">
+                      <Input id="barcode" name="barcode" ref={barcodeInputRef} placeholder="EAN-13, UPC..." />
+                      <Button type="button" variant="outline" size="icon" onClick={() => setScanOpen(true)} title="Scanner">
+                        <ScanLine className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                   <Field label="Stock" name="stock" type="number" defaultValue={editing?.stock ?? 0} required />
                   <Field label="Prix de vente (FCFA)" name="price" type="number" defaultValue={editing?.price ?? 0} required />
                   <Field label="Coût d'achat (FCFA)" name="cost" type="number" defaultValue={editing?.cost ?? 0} />
@@ -223,6 +241,16 @@ function ProductsPage() {
           </table>
         </div>
       </Card>
+
+      <BarcodeScanner
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onDetected={(code) => {
+          if (barcodeInputRef.current) barcodeInputRef.current.value = code;
+          setScanOpen(false);
+          toast.success(`Code-barres: ${code}`);
+        }}
+      />
     </div>
   );
 }

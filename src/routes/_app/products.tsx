@@ -79,14 +79,15 @@ function ProductsPage() {
     mutationFn: async (p: Partial<Product> & { id?: string }) => {
       if (p.id) {
         const { error } = await supabase.from("products").update({
-          name: p.name, sku: p.sku, category: p.category,
+          name: p.name, sku: p.sku, barcode: p.barcode, category: p.category,
           price: p.price, cost: p.cost, stock: p.stock,
           low_stock_threshold: p.low_stock_threshold, updated_at: new Date().toISOString(),
         }).eq("id", p.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("products").insert({
-          user_id: user!.id, name: p.name!, sku: p.sku ?? null, category: p.category ?? null,
+          user_id: user!.id, name: p.name!, sku: p.sku ?? null, barcode: p.barcode ?? null,
+          category: p.category ?? null,
           price: p.price ?? 0, cost: p.cost ?? 0, stock: p.stock ?? 0,
           low_stock_threshold: p.low_stock_threshold ?? 5,
         });

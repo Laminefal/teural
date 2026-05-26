@@ -241,6 +241,16 @@ function ProductsPage() {
           </table>
         </div>
       </Card>
+
+      <BarcodeScanner
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onDetected={(code) => {
+          if (barcodeInputRef.current) barcodeInputRef.current.value = code;
+          setScanOpen(false);
+          toast.success(`Code-barres: ${code}`);
+        }}
+      />
     </div>
   );
 }

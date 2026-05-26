@@ -56,10 +56,12 @@ function ProductsPage() {
         setFormName("");
         skuTouched.current = false;
         if (skuInputRef.current) skuInputRef.current.value = "";
+        if (barcodeInputRef.current) barcodeInputRef.current.value = "";
       } else {
         setFormName(editing.name);
         skuTouched.current = true;
         if (skuInputRef.current) skuInputRef.current.value = editing.sku ?? "";
+        if (barcodeInputRef.current) barcodeInputRef.current.value = editing.barcode ?? "";
       }
     }
   }, [open, editing]);

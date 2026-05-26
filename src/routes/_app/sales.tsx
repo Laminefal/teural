@@ -26,6 +26,7 @@ function SalesPage() {
   const [productId, setProductId] = useState<string>("");
   const [qty, setQty] = useState(1);
   const [unitPrice, setUnitPrice] = useState<number | "">("");
+  const [scanOpen, setScanOpen] = useState(false);
 
   const { data: products = [] } = useQuery({
     queryKey: ["products", user!.id],

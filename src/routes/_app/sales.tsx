@@ -100,9 +100,15 @@ function SalesPage() {
   });
 
   const { data: sales = [], isLoading } = useQuery({
-    queryKey: ["sales", user!.id],
+    queryKey: ["sales", user!.id, from.toISOString(), to.toISOString()],
     queryFn: async () => {
-      const { data } = await supabase.from("sales").select("*").order("created_at", { ascending: false }).limit(200);
+      const { data } = await supabase
+        .from("sales")
+        .select("*")
+        .gte("created_at", from.toISOString())
+        .lte("created_at", to.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1000);
       return data ?? [];
     },
   });

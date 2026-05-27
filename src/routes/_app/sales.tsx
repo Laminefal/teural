@@ -284,6 +284,52 @@ function SalesPage() {
         }
       />
 
+      <Card className="mb-6 p-4 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {presets.map((p) => (
+            <Button
+              key={p.key}
+              size="sm"
+              variant={preset === p.key ? "default" : "outline"}
+              onClick={() => applyPreset(p.key)}
+              className="h-8"
+            >
+              {p.label}
+            </Button>
+          ))}
+        </div>
+        <div className="ml-auto">
+          <Popover open={dateOpen} onOpenChange={setDateOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={preset === "custom" ? "default" : "outline"}
+                size="sm"
+                className={cn("h-8 justify-start gap-2 font-normal", !range.from && "text-muted-foreground")}
+              >
+                <CalendarIcon className="h-4 w-4" />
+                {formatRange(range)}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                selected={range}
+                onSelect={(r) => {
+                  if (r) {
+                    setRange(r);
+                    setPreset("custom");
+                    if (r.from && r.to) setDateOpen(false);
+                  }
+                }}
+                numberOfMonths={1}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </Card>
+
       {/* Grouped sale dialog */}
       <Dialog open={groupOpen} onOpenChange={(v) => { setGroupOpen(v); if (!v) setCart([]); }}>
         <DialogContent className="max-w-2xl">

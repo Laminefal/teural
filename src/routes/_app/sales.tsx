@@ -31,6 +31,29 @@ type CartItem = {
   max_stock: number;
 };
 
+function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
+function endOfDay(d: Date) { const x = new Date(d); x.setHours(23,59,59,999); return x; }
+
+type PresetKey = "today" | "7d" | "30d" | "90d" | "month" | "custom";
+
+function getPresetRange(key: PresetKey): DateRange {
+  const now = new Date();
+  const to = endOfDay(now);
+  if (key === "today") return { from: startOfDay(now), to };
+  if (key === "7d") { const f = new Date(now); f.setDate(f.getDate() - 6); return { from: startOfDay(f), to }; }
+  if (key === "30d") { const f = new Date(now); f.setDate(f.getDate() - 29); return { from: startOfDay(f), to }; }
+  if (key === "90d") { const f = new Date(now); f.setDate(f.getDate() - 89); return { from: startOfDay(f), to }; }
+  if (key === "month") { const f = new Date(now.getFullYear(), now.getMonth(), 1); return { from: startOfDay(f), to }; }
+  return { from: startOfDay(now), to };
+}
+
+function formatRange(r: DateRange) {
+  const fmt = (d: Date) => new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(d);
+  if (!r.from) return "Choisir une période";
+  if (!r.to || r.from.toDateString() === r.to.toDateString()) return fmt(r.from);
+  return `${fmt(r.from)} — ${fmt(r.to)}`;
+}
+
 function SalesPage() {
   const { user } = useAuth();
   const qc = useQueryClient();

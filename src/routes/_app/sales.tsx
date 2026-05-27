@@ -217,15 +217,13 @@ function SalesPage() {
     },
   });
 
-  const todayTotal = sales
-    .filter((s) => { const d = new Date(s.created_at); const t = new Date(); t.setHours(0,0,0,0); return d >= t; })
-    .reduce((a, s) => a + Number(s.total), 0);
+  const periodTotal = sales.reduce((a, s) => a + Number(s.total), 0);
 
   return (
     <div>
       <PageHeader
         title="Ventes"
-        subtitle={`Aujourd'hui: ${formatFCFA(todayTotal)}`}
+        subtitle={`${formatRange(range)} · Total: ${formatFCFA(periodTotal)}`}
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setScanOpen(true)}>

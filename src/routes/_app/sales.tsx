@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, ScanLine, Trash2 } from "lucide-react";
+import { Plus, ScanLine, Trash2, ShoppingCart, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
@@ -19,6 +19,14 @@ export const Route = createFileRoute("/_app/sales")({
   component: SalesPage,
 });
 
+type CartItem = {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  max_stock: number;
+};
+
 function SalesPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -27,6 +35,13 @@ function SalesPage() {
   const [qty, setQty] = useState(1);
   const [unitPrice, setUnitPrice] = useState<number | "">("");
   const [scanOpen, setScanOpen] = useState(false);
+
+  // Grouped sale
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [addProductId, setAddProductId] = useState<string>("");
+  const [addQty, setAddQty] = useState(1);
+  const [groupScanOpen, setGroupScanOpen] = useState(false);
 
   const { data: products = [] } = useQuery({
     queryKey: ["products", user!.id],
@@ -73,6 +88,69 @@ function SalesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const addToCart = (pid: string, quantity: number) => {
+    const p = products.find((x) => x.id === pid);
+    if (!p) return toast.error("Produit introuvable");
+    if (quantity < 1) return toast.error("Quantité invalide");
+    setCart((prev) => {
+      const existing = prev.find((c) => c.product_id === pid);
+      const newQty = (existing?.quantity ?? 0) + quantity;
+      if (newQty > p.stock) {
+        toast.error(`Stock insuffisant pour ${p.name} (${p.stock})`);
+        return prev;
+      }
+      if (existing) {
+        return prev.map((c) => c.product_id === pid ? { ...c, quantity: newQty } : c);
+      }
+      return [...prev, {
+        product_id: p.id,
+        product_name: p.name,
+        quantity,
+        unit_price: Number(p.price),
+        max_stock: p.stock,
+      }];
+    });
+    setAddProductId("");
+    setAddQty(1);
+  };
+
+  const updateCartItem = (pid: string, patch: Partial<CartItem>) => {
+    setCart((prev) => prev.map((c) => c.product_id === pid ? { ...c, ...patch } : c));
+  };
+
+  const removeFromCart = (pid: string) => setCart((prev) => prev.filter((c) => c.product_id !== pid));
+
+  const cartTotal = cart.reduce((a, c) => a + c.unit_price * c.quantity, 0);
+
+  const createGroup = useMutation({
+    mutationFn: async () => {
+      if (cart.length === 0) throw new Error("Ajoutez au moins un produit");
+      for (const item of cart) {
+        if (item.quantity < 1) throw new Error(`Quantité invalide pour ${item.product_name}`);
+        if (item.quantity > item.max_stock) throw new Error(`Stock insuffisant pour ${item.product_name} (${item.max_stock})`);
+      }
+      const rows = cart.map((c) => ({
+        user_id: user!.id,
+        product_id: c.product_id,
+        product_name: c.product_name,
+        quantity: c.quantity,
+        unit_price: c.unit_price,
+        total: c.unit_price * c.quantity,
+      }));
+      const { error } = await supabase.from("sales").insert(rows);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(`Vente groupée enregistrée (${cart.length} produits)`);
+      setCart([]);
+      setGroupOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const del = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("sales").delete().eq("id", id);
@@ -95,9 +173,12 @@ function SalesPage() {
         title="Ventes"
         subtitle={`Aujourd'hui: ${formatFCFA(todayTotal)}`}
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setScanOpen(true)}>
               <ScanLine className="h-4 w-4" /> Scanner
+            </Button>
+            <Button variant="outline" onClick={() => setGroupOpen(true)}>
+              <ShoppingCart className="h-4 w-4" /> Vente groupée
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
@@ -151,6 +232,113 @@ function SalesPage() {
         }
       />
 
+      {/* Grouped sale dialog */}
+      <Dialog open={groupOpen} onOpenChange={(v) => { setGroupOpen(v); if (!v) setCart([]); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Vente groupée</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Card className="p-4 space-y-3">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ajouter un produit</Label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex-1">
+                  <Select value={addProductId} onValueChange={setAddProductId}>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner un produit" /></SelectTrigger>
+                    <SelectContent>
+                      {products.length === 0 && <div className="p-3 text-xs text-muted-foreground">Aucun produit.</div>}
+                      {products.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} — {formatFCFA(p.price)} (stock: {p.stock})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Input
+                  type="number"
+                  min={1}
+                  value={addQty}
+                  onChange={(e) => setAddQty(Math.max(1, Number(e.target.value)))}
+                  className="sm:w-24"
+                  placeholder="Qté"
+                />
+                <Button type="button" variant="outline" size="icon" onClick={() => setGroupScanOpen(true)} title="Scanner">
+                  <ScanLine className="h-4 w-4" />
+                </Button>
+                <Button type="button" onClick={() => addProductId && addToCart(addProductId, addQty)} disabled={!addProductId}>
+                  <Plus className="h-4 w-4" /> Ajouter
+                </Button>
+              </div>
+            </Card>
+
+            <div className="border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto max-h-80">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2">Produit</th>
+                      <th className="px-3 py-2 text-right w-20">Qté</th>
+                      <th className="px-3 py-2 text-right w-32">P.U.</th>
+                      <th className="px-3 py-2 text-right w-32">Sous-total</th>
+                      <th className="px-3 py-2 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {cart.length === 0 && (
+                      <tr><td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">Aucun produit. Ajoutez-en au-dessus.</td></tr>
+                    )}
+                    {cart.map((c) => (
+                      <tr key={c.product_id}>
+                        <td className="px-3 py-2 font-medium">{c.product_name}</td>
+                        <td className="px-3 py-2 text-right">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={c.max_stock}
+                            value={c.quantity}
+                            onChange={(e) => updateCartItem(c.product_id, { quantity: Math.max(1, Number(e.target.value)) })}
+                            className="h-8 text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={c.unit_price}
+                            onChange={(e) => updateCartItem(c.product_id, { unit_price: Math.max(0, Number(e.target.value)) })}
+                            className="h-8 text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold">{formatFCFA(c.unit_price * c.quantity)}</td>
+                        <td className="px-3 py-2 text-right">
+                          <Button variant="ghost" size="icon" onClick={() => removeFromCart(c.product_id)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <Card className="p-4 bg-gradient-emerald text-primary-foreground flex items-center justify-between">
+              <div>
+                <div className="text-xs opacity-80">Total ({cart.length} produit{cart.length > 1 ? "s" : ""}, {cart.reduce((a, c) => a + c.quantity, 0)} article{cart.reduce((a, c) => a + c.quantity, 0) > 1 ? "s" : ""})</div>
+                <div className="font-display text-3xl font-bold">{formatFCFA(cartTotal)}</div>
+              </div>
+            </Card>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCart([])} disabled={cart.length === 0}>Vider</Button>
+            <Button onClick={() => createGroup.mutate()} disabled={createGroup.isPending || cart.length === 0}>
+              Valider la vente groupée
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <BarcodeScanner
         open={scanOpen}
         onClose={() => setScanOpen(false)}
@@ -164,6 +352,21 @@ function SalesPage() {
             toast.success(`Produit: ${match.name}`);
           } else {
             toast.error(`Code "${code}" introuvable. Ajoutez-le à un produit.`);
+          }
+        }}
+      />
+
+      <BarcodeScanner
+        open={groupScanOpen}
+        onClose={() => setGroupScanOpen(false)}
+        onDetected={(code) => {
+          setGroupScanOpen(false);
+          const match = products.find((p) => p.barcode === code);
+          if (match) {
+            addToCart(match.id, 1);
+            toast.success(`Ajouté: ${match.name}`);
+          } else {
+            toast.error(`Code "${code}" introuvable.`);
           }
         }}
       />

@@ -70,6 +70,27 @@ function SalesPage() {
   const [addQty, setAddQty] = useState(1);
   const [groupScanOpen, setGroupScanOpen] = useState(false);
 
+  // Date range
+  const [preset, setPreset] = useState<PresetKey>("30d");
+  const [range, setRange] = useState<DateRange>(() => getPresetRange("30d"));
+  const [dateOpen, setDateOpen] = useState(false);
+
+  const from = range.from ? startOfDay(range.from) : startOfDay(new Date());
+  const to = range.to ? endOfDay(range.to) : endOfDay(range.from ?? new Date());
+
+  const applyPreset = (k: PresetKey) => {
+    setPreset(k);
+    if (k !== "custom") setRange(getPresetRange(k));
+  };
+
+  const presets: { key: PresetKey; label: string }[] = [
+    { key: "today", label: "Aujourd'hui" },
+    { key: "7d", label: "7 jours" },
+    { key: "30d", label: "30 jours" },
+    { key: "90d", label: "90 jours" },
+    { key: "month", label: "Ce mois" },
+  ];
+
   const { data: products = [] } = useQuery({
     queryKey: ["products", user!.id],
     queryFn: async () => {

@@ -56,10 +56,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Teral" },
+      { title: "Teural" },
       { name: "description", content: "Gérez votre boutique au Sénégal: stock, ventes, dépenses." },
-      { property: "og:title", content: "Teral" },
-      { name: "twitter:title", content: "Teral" },
+      { property: "og:title", content: "Teural" },
+      { name: "twitter:title", content: "Teural" },
       { property: "og:description", content: "Gérez votre boutique au Sénégal: stock, ventes, dépenses." },
       { name: "twitter:description", content: "Gérez votre boutique au Sénégal: stock, ventes, dépenses." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/34c7d084-fa16-4f97-b9ff-863a519077c3" },

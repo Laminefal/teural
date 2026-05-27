@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, ScanLine, Trash2, ShoppingCart, X } from "lucide-react";
+import { Plus, ScanLine, Trash2, ShoppingCart, X, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
@@ -14,6 +14,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { formatFCFA, formatDateTime } from "@/lib/format";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import type { DateRange } from "react-day-picker";
 
 export const Route = createFileRoute("/_app/sales")({
   component: SalesPage,
@@ -26,6 +30,29 @@ type CartItem = {
   unit_price: number;
   max_stock: number;
 };
+
+function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
+function endOfDay(d: Date) { const x = new Date(d); x.setHours(23,59,59,999); return x; }
+
+type PresetKey = "today" | "7d" | "30d" | "90d" | "month" | "custom";
+
+function getPresetRange(key: PresetKey): DateRange {
+  const now = new Date();
+  const to = endOfDay(now);
+  if (key === "today") return { from: startOfDay(now), to };
+  if (key === "7d") { const f = new Date(now); f.setDate(f.getDate() - 6); return { from: startOfDay(f), to }; }
+  if (key === "30d") { const f = new Date(now); f.setDate(f.getDate() - 29); return { from: startOfDay(f), to }; }
+  if (key === "90d") { const f = new Date(now); f.setDate(f.getDate() - 89); return { from: startOfDay(f), to }; }
+  if (key === "month") { const f = new Date(now.getFullYear(), now.getMonth(), 1); return { from: startOfDay(f), to }; }
+  return { from: startOfDay(now), to };
+}
+
+function formatRange(r: DateRange) {
+  const fmt = (d: Date) => new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(d);
+  if (!r.from) return "Choisir une période";
+  if (!r.to || r.from.toDateString() === r.to.toDateString()) return fmt(r.from);
+  return `${fmt(r.from)} — ${fmt(r.to)}`;
+}
 
 function SalesPage() {
   const { user } = useAuth();
@@ -43,6 +70,27 @@ function SalesPage() {
   const [addQty, setAddQty] = useState(1);
   const [groupScanOpen, setGroupScanOpen] = useState(false);
 
+  // Date range
+  const [preset, setPreset] = useState<PresetKey>("30d");
+  const [range, setRange] = useState<DateRange>(() => getPresetRange("30d"));
+  const [dateOpen, setDateOpen] = useState(false);
+
+  const from = range.from ? startOfDay(range.from) : startOfDay(new Date());
+  const to = range.to ? endOfDay(range.to) : endOfDay(range.from ?? new Date());
+
+  const applyPreset = (k: PresetKey) => {
+    setPreset(k);
+    if (k !== "custom") setRange(getPresetRange(k));
+  };
+
+  const presets: { key: PresetKey; label: string }[] = [
+    { key: "today", label: "Aujourd'hui" },
+    { key: "7d", label: "7 jours" },
+    { key: "30d", label: "30 jours" },
+    { key: "90d", label: "90 jours" },
+    { key: "month", label: "Ce mois" },
+  ];
+
   const { data: products = [] } = useQuery({
     queryKey: ["products", user!.id],
     queryFn: async () => {
@@ -52,9 +100,15 @@ function SalesPage() {
   });
 
   const { data: sales = [], isLoading } = useQuery({
-    queryKey: ["sales", user!.id],
+    queryKey: ["sales", user!.id, from.toISOString(), to.toISOString()],
     queryFn: async () => {
-      const { data } = await supabase.from("sales").select("*").order("created_at", { ascending: false }).limit(200);
+      const { data } = await supabase
+        .from("sales")
+        .select("*")
+        .gte("created_at", from.toISOString())
+        .lte("created_at", to.toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1000);
       return data ?? [];
     },
   });
@@ -163,15 +217,13 @@ function SalesPage() {
     },
   });
 
-  const todayTotal = sales
-    .filter((s) => { const d = new Date(s.created_at); const t = new Date(); t.setHours(0,0,0,0); return d >= t; })
-    .reduce((a, s) => a + Number(s.total), 0);
+  const periodTotal = sales.reduce((a, s) => a + Number(s.total), 0);
 
   return (
     <div>
       <PageHeader
         title="Ventes"
-        subtitle={`Aujourd'hui: ${formatFCFA(todayTotal)}`}
+        subtitle={`${formatRange(range)} · Total: ${formatFCFA(periodTotal)}`}
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setScanOpen(true)}>
@@ -231,6 +283,52 @@ function SalesPage() {
           </div>
         }
       />
+
+      <Card className="mb-6 p-4 flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {presets.map((p) => (
+            <Button
+              key={p.key}
+              size="sm"
+              variant={preset === p.key ? "default" : "outline"}
+              onClick={() => applyPreset(p.key)}
+              className="h-8"
+            >
+              {p.label}
+            </Button>
+          ))}
+        </div>
+        <div className="ml-auto">
+          <Popover open={dateOpen} onOpenChange={setDateOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={preset === "custom" ? "default" : "outline"}
+                size="sm"
+                className={cn("h-8 justify-start gap-2 font-normal", !range.from && "text-muted-foreground")}
+              >
+                <CalendarIcon className="h-4 w-4" />
+                {formatRange(range)}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                selected={range}
+                onSelect={(r) => {
+                  if (r) {
+                    setRange(r);
+                    setPreset("custom");
+                    if (r.from && r.to) setDateOpen(false);
+                  }
+                }}
+                numberOfMonths={1}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </Card>
 
       {/* Grouped sale dialog */}
       <Dialog open={groupOpen} onOpenChange={(v) => { setGroupOpen(v); if (!v) setCart([]); }}>

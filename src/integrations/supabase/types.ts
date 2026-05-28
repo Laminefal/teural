@@ -154,8 +154,10 @@ export type Database = {
       }
       sales: {
         Row: {
+          cancelled_at: string | null
           created_at: string
           id: string
+          is_cancelled: boolean
           product_id: string | null
           product_name: string
           quantity: number
@@ -164,8 +166,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cancelled_at?: string | null
           created_at?: string
           id?: string
+          is_cancelled?: boolean
           product_id?: string | null
           product_name: string
           quantity?: number
@@ -174,8 +178,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cancelled_at?: string | null
           created_at?: string
           id?: string
+          is_cancelled?: boolean
           product_id?: string | null
           product_name?: string
           quantity?: number

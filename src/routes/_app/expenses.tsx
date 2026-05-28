@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Ban, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatFCFA, formatDateTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/expenses")({
   component: ExpensesPage,
@@ -61,6 +62,19 @@ function ExpensesPage() {
     },
   });
 
+  const toggleCancel = useMutation({
+    mutationFn: async ({ id, cancel }: { id: string; cancel: boolean }) => {
+      const { error } = await supabase.from("expenses").update({ is_cancelled: cancel }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["expenses"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(vars.cancel ? "Dépense annulée" : "Annulation retirée");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -72,7 +86,9 @@ function ExpensesPage() {
   };
 
   const today = new Date(); today.setHours(0,0,0,0);
-  const todayTotal = expenses.filter((x) => new Date(x.created_at) >= today).reduce((a, x) => a + Number(x.amount), 0);
+  const todayTotal = expenses
+    .filter((x: any) => !x.is_cancelled && new Date(x.created_at) >= today)
+    .reduce((a, x) => a + Number(x.amount), 0);
 
   return (
     <div>
@@ -128,14 +144,30 @@ function ExpensesPage() {
             <tbody className="divide-y divide-border/60">
               {isLoading && <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Chargement...</td></tr>}
               {!isLoading && expenses.length === 0 && <tr><td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">Aucune dépense enregistrée.</td></tr>}
-              {expenses.map((x) => (
-                <tr key={x.id} className="hover:bg-muted/30">
+              {expenses.map((x: any) => (
+                <tr key={x.id} className={cn("hover:bg-muted/30", x.is_cancelled && "bg-destructive/5 text-muted-foreground line-through")}>
                   <td className="px-4 py-3 text-muted-foreground">{formatDateTime(x.created_at)}</td>
-                  <td className="px-4 py-3"><span className="inline-flex rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-medium text-gold-foreground">{x.category}</span></td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex rounded-full bg-gold/15 px-2.5 py-0.5 text-xs font-medium text-gold-foreground no-underline">{x.category}</span>
+                    {x.is_cancelled && <span className="ml-2 inline-block rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-destructive no-underline">Annulée</span>}
+                  </td>
                   <td className="px-4 py-3">{x.description ?? "—"}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-destructive">−{formatFCFA(Number(x.amount))}</td>
+                  <td className={cn("px-4 py-3 text-right font-semibold", !x.is_cancelled && "text-destructive")}>−{formatFCFA(Number(x.amount))}</td>
                   <td className="px-4 py-3 text-right">
-                    <Button variant="ghost" size="icon" onClick={() => { if (confirm("Supprimer ?")) del.mutate(x.id); }}><Trash2 className="h-4 w-4" /></Button>
+                    <div className="flex justify-end gap-1 no-underline">
+                      {x.is_cancelled ? (
+                        <Button variant="ghost" size="icon" title="Rétablir la dépense" onClick={() => toggleCancel.mutate({ id: x.id, cancel: false })}>
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" title="Annuler la dépense" onClick={() => { if (confirm("Annuler cette dépense ?")) toggleCancel.mutate({ id: x.id, cancel: true }); }}>
+                          <Ban className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" title="Supprimer" onClick={() => { if (confirm("Supprimer définitivement ?")) del.mutate(x.id); }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

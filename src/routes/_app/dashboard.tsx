@@ -242,12 +242,15 @@ function Dashboard() {
         ) : (
           <div className="divide-y divide-border/60">
             {sales.slice(0, 6).map((s) => (
-              <div key={s.id} className="flex items-center justify-between py-3">
+              <div key={s.id} className={cn("flex items-center justify-between py-3", s.is_cancelled && "text-muted-foreground line-through")}>
                 <div>
-                  <div className="text-sm font-medium">{s.product_name}</div>
+                  <div className="text-sm font-medium">
+                    {s.product_name}
+                    {s.is_cancelled && <span className="ml-2 inline-block rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-destructive no-underline">Annulée</span>}
+                  </div>
                   <div className="text-xs text-muted-foreground">{formatDateTime(s.created_at)} · ×{s.quantity}</div>
                 </div>
-                <div className="text-sm font-semibold text-accent">+{formatFCFA(Number(s.total))}</div>
+                <div className={cn("text-sm font-semibold", !s.is_cancelled && "text-accent")}>+{formatFCFA(Number(s.total))}</div>
               </div>
             ))}
           </div>

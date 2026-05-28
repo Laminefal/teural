@@ -94,12 +94,12 @@ function Dashboard() {
     for (let i = 0; i < totalDays; i++) {
       const d = new Date(startMs + i * msDay);
       const next = new Date(d.getTime() + msDay);
-      const v = sales.filter((s) => { const sd = new Date(s.created_at); return sd >= d && sd < next; }).reduce((a, s) => a + Number(s.total), 0);
-      const e = expenses.filter((x) => { const sd = new Date(x.created_at); return sd >= d && sd < next; }).reduce((a, x) => a + Number(x.amount), 0);
+      const v = activeSales.filter((s) => { const sd = new Date(s.created_at); return sd >= d && sd < next; }).reduce((a, s) => a + Number(s.total), 0);
+      const e = activeExpenses.filter((x) => { const sd = new Date(x.created_at); return sd >= d && sd < next; }).reduce((a, x) => a + Number(x.amount), 0);
       out.push({ date: d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }), ventes: v, depenses: e });
     }
     return out;
-  }, [sales, expenses, from, to]);
+  }, [activeSales, activeExpenses, from, to]);
 
   const applyPreset = (k: PresetKey) => {
     setPreset(k);

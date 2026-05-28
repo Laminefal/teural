@@ -76,8 +76,11 @@ function Dashboard() {
   const expenses = stats?.expenses ?? [];
   const products = stats?.products ?? [];
 
-  const revenue = sales.reduce((a, s) => a + Number(s.total), 0);
-  const expensesTotal = expenses.reduce((a, e) => a + Number(e.amount), 0);
+  const activeSales = sales.filter((s: any) => !s.is_cancelled);
+  const activeExpenses = expenses.filter((e: any) => !e.is_cancelled);
+
+  const revenue = activeSales.reduce((a, s) => a + Number(s.total), 0);
+  const expensesTotal = activeExpenses.reduce((a, e) => a + Number(e.amount), 0);
   const profit = revenue - expensesTotal;
   const inventoryValue = products.reduce((a, p) => a + Number(p.cost) * Number(p.stock), 0);
   const lowStock = products.filter((p) => Number(p.stock) <= Number(p.low_stock_threshold));
@@ -91,12 +94,12 @@ function Dashboard() {
     for (let i = 0; i < totalDays; i++) {
       const d = new Date(startMs + i * msDay);
       const next = new Date(d.getTime() + msDay);
-      const v = sales.filter((s) => { const sd = new Date(s.created_at); return sd >= d && sd < next; }).reduce((a, s) => a + Number(s.total), 0);
-      const e = expenses.filter((x) => { const sd = new Date(x.created_at); return sd >= d && sd < next; }).reduce((a, x) => a + Number(x.amount), 0);
+      const v = activeSales.filter((s) => { const sd = new Date(s.created_at); return sd >= d && sd < next; }).reduce((a, s) => a + Number(s.total), 0);
+      const e = activeExpenses.filter((x) => { const sd = new Date(x.created_at); return sd >= d && sd < next; }).reduce((a, x) => a + Number(x.amount), 0);
       out.push({ date: d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }), ventes: v, depenses: e });
     }
     return out;
-  }, [sales, expenses, from, to]);
+  }, [activeSales, activeExpenses, from, to]);
 
   const applyPreset = (k: PresetKey) => {
     setPreset(k);
@@ -165,8 +168,8 @@ function Dashboard() {
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Chiffre d'affaires" value={formatFCFA(revenue)} icon={Receipt} accent="emerald" trend={`${sales.length} ventes`} />
-        <StatCard label="Dépenses" value={formatFCFA(expensesTotal)} icon={Wallet} accent="rose" trend={`${expenses.length} entrées`} />
+        <StatCard label="Chiffre d'affaires" value={formatFCFA(revenue)} icon={Receipt} accent="emerald" trend={`${activeSales.length} ventes`} />
+        <StatCard label="Dépenses" value={formatFCFA(expensesTotal)} icon={Wallet} accent="rose" trend={`${activeExpenses.length} entrées`} />
         <StatCard label="Bénéfice" value={formatFCFA(profit)} icon={TrendingUp} accent="gold" trend={profit >= 0 ? "Positif" : "Négatif"} positive={profit >= 0} />
         <StatCard label="Valeur du stock" value={formatFCFA(inventoryValue)} icon={Boxes} accent="emerald" trend={`${products.length} produits`} />
       </div>
@@ -239,12 +242,15 @@ function Dashboard() {
         ) : (
           <div className="divide-y divide-border/60">
             {sales.slice(0, 6).map((s) => (
-              <div key={s.id} className="flex items-center justify-between py-3">
+              <div key={s.id} className={cn("flex items-center justify-between py-3", s.is_cancelled && "text-muted-foreground line-through")}>
                 <div>
-                  <div className="text-sm font-medium">{s.product_name}</div>
+                  <div className="text-sm font-medium">
+                    {s.product_name}
+                    {s.is_cancelled && <span className="ml-2 inline-block rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-destructive no-underline">Annulée</span>}
+                  </div>
                   <div className="text-xs text-muted-foreground">{formatDateTime(s.created_at)} · ×{s.quantity}</div>
                 </div>
-                <div className="text-sm font-semibold text-accent">+{formatFCFA(Number(s.total))}</div>
+                <div className={cn("text-sm font-semibold", !s.is_cancelled && "text-accent")}>+{formatFCFA(Number(s.total))}</div>
               </div>
             ))}
           </div>

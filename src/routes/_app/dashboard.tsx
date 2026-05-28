@@ -76,8 +76,11 @@ function Dashboard() {
   const expenses = stats?.expenses ?? [];
   const products = stats?.products ?? [];
 
-  const revenue = sales.reduce((a, s) => a + Number(s.total), 0);
-  const expensesTotal = expenses.reduce((a, e) => a + Number(e.amount), 0);
+  const activeSales = sales.filter((s: any) => !s.is_cancelled);
+  const activeExpenses = expenses.filter((e: any) => !e.is_cancelled);
+
+  const revenue = activeSales.reduce((a, s) => a + Number(s.total), 0);
+  const expensesTotal = activeExpenses.reduce((a, e) => a + Number(e.amount), 0);
   const profit = revenue - expensesTotal;
   const inventoryValue = products.reduce((a, p) => a + Number(p.cost) * Number(p.stock), 0);
   const lowStock = products.filter((p) => Number(p.stock) <= Number(p.low_stock_threshold));

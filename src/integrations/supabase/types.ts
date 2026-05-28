@@ -56,26 +56,32 @@ export type Database = {
       expenses: {
         Row: {
           amount: number
+          cancelled_at: string | null
           category: string
           created_at: string
           description: string | null
           id: string
+          is_cancelled: boolean
           user_id: string
         }
         Insert: {
           amount?: number
+          cancelled_at?: string | null
           category?: string
           created_at?: string
           description?: string | null
           id?: string
+          is_cancelled?: boolean
           user_id: string
         }
         Update: {
           amount?: number
+          cancelled_at?: string | null
           category?: string
           created_at?: string
           description?: string | null
           id?: string
+          is_cancelled?: boolean
           user_id?: string
         }
         Relationships: []

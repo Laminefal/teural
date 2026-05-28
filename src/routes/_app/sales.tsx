@@ -503,14 +503,30 @@ function SalesPage() {
               {isLoading && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Chargement...</td></tr>}
               {!isLoading && sales.length === 0 && <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">Aucune vente enregistrée.</td></tr>}
               {sales.map((s) => (
-                <tr key={s.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-3 text-muted-foreground">{formatDateTime(s.created_at)}</td>
-                  <td className="px-4 py-3 font-medium">{s.product_name}</td>
+                <tr key={s.id} className={cn("hover:bg-muted/30", s.is_cancelled && "bg-destructive/5 text-muted-foreground line-through")}>
+                  <td className="px-4 py-3 text-muted-foreground no-underline">{formatDateTime(s.created_at)}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {s.product_name}
+                    {s.is_cancelled && <span className="ml-2 inline-block rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-destructive no-underline">Annulée</span>}
+                  </td>
                   <td className="px-4 py-3 text-right">{s.quantity}</td>
                   <td className="px-4 py-3 text-right">{formatFCFA(Number(s.unit_price))}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-accent">{formatFCFA(Number(s.total))}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Button variant="ghost" size="icon" onClick={() => { if (confirm("Supprimer cette vente ? (le stock ne sera pas restauré)")) del.mutate(s.id); }}><Trash2 className="h-4 w-4" /></Button>
+                  <td className={cn("px-4 py-3 text-right font-semibold", !s.is_cancelled && "text-accent")}>{formatFCFA(Number(s.total))}</td>
+                  <td className="px-4 py-3 text-right no-underline">
+                    <div className="flex justify-end gap-1">
+                      {s.is_cancelled ? (
+                        <Button variant="ghost" size="icon" title="Rétablir la vente" onClick={() => toggleCancel.mutate({ id: s.id, cancel: false })}>
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" title="Annuler la vente" onClick={() => { if (confirm("Annuler cette vente ? Le stock sera restauré.")) toggleCancel.mutate({ id: s.id, cancel: true }); }}>
+                          <Ban className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" title="Supprimer définitivement" onClick={() => { if (confirm("Supprimer définitivement cette vente ?")) del.mutate(s.id); }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -217,7 +217,24 @@ function SalesPage() {
     },
   });
 
-  const periodTotal = sales.reduce((a, s) => a + Number(s.total), 0);
+  const toggleCancel = useMutation({
+    mutationFn: async ({ id, cancel }: { id: string; cancel: boolean }) => {
+      const { error } = await supabase
+        .from("sales")
+        .update({ is_cancelled: cancel })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success(vars.cancel ? "Vente annulée (stock restauré)" : "Annulation retirée");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const periodTotal = sales.reduce((a, s) => a + (s.is_cancelled ? 0 : Number(s.total)), 0);
 
   return (
     <div>

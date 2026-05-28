@@ -168,8 +168,8 @@ function Dashboard() {
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Chiffre d'affaires" value={formatFCFA(revenue)} icon={Receipt} accent="emerald" trend={`${sales.length} ventes`} />
-        <StatCard label="Dépenses" value={formatFCFA(expensesTotal)} icon={Wallet} accent="rose" trend={`${expenses.length} entrées`} />
+        <StatCard label="Chiffre d'affaires" value={formatFCFA(revenue)} icon={Receipt} accent="emerald" trend={`${activeSales.length} ventes`} />
+        <StatCard label="Dépenses" value={formatFCFA(expensesTotal)} icon={Wallet} accent="rose" trend={`${activeExpenses.length} entrées`} />
         <StatCard label="Bénéfice" value={formatFCFA(profit)} icon={TrendingUp} accent="gold" trend={profit >= 0 ? "Positif" : "Négatif"} positive={profit >= 0} />
         <StatCard label="Valeur du stock" value={formatFCFA(inventoryValue)} icon={Boxes} accent="emerald" trend={`${products.length} produits`} />
       </div>

@@ -106,6 +106,7 @@ function DebtsPage() {
         title="Dettes & Créances"
         subtitle="Suivez qui vous doit et à qui vous devez"
         action={
+          isOwner ? null : (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-emerald text-primary-foreground"><Plus className="h-4 w-4" /> Nouvelle entrée</Button>
@@ -145,6 +146,7 @@ function DebtsPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )
         }
       />
 

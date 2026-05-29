@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AlertTriangle, Pencil, Plus, ScanLine, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useRole } from "@/lib/role";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -39,6 +40,7 @@ function generateSKU(name: string): string {
 
 function ProductsPage() {
   const { user } = useAuth();
+  const { shopId, isOwner } = useRole();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -85,8 +87,10 @@ function ProductsPage() {
         }).eq("id", p.id);
         if (error) throw error;
       } else {
+        if (!shopId) throw new Error("Boutique introuvable");
         const { error } = await supabase.from("products").insert({
-          user_id: user!.id, name: p.name!, sku: p.sku ?? null, barcode: p.barcode ?? null,
+          user_id: user!.id, shop_id: shopId,
+          name: p.name!, sku: p.sku ?? null, barcode: p.barcode ?? null,
           category: p.category ?? null,
           price: p.price ?? 0, cost: p.cost ?? 0, stock: p.stock ?? 0,
           low_stock_threshold: p.low_stock_threshold ?? 5,
@@ -152,6 +156,7 @@ function ProductsPage() {
         title="Produits"
         subtitle="Gérez votre inventaire"
         action={
+          isOwner ? null : (
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setEditing(null); }}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-emerald text-primary-foreground" onClick={() => setEditing(null)}>
@@ -185,6 +190,7 @@ function ProductsPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )
         }
       />
 
@@ -230,8 +236,8 @@ function ProductsPage() {
                     <td className="px-4 py-3 text-right text-muted-foreground">{formatFCFA(p.cost * p.stock)}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => { setEditing(p); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Supprimer "${p.name}" ?`)) del.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
+                        {!isOwner && <Button variant="ghost" size="icon" onClick={() => { setEditing(p); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>}
+                        {isOwner && <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Supprimer "${p.name}" ?`)) del.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>}
                       </div>
                     </td>
                   </tr>

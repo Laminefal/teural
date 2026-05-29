@@ -1,24 +1,28 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store, HandCoins } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store, HandCoins, Users } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useRole } from "@/lib/role";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-const nav = [
+const baseNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/products", label: "Produits", icon: Package },
   { to: "/sales", label: "Ventes", icon: Receipt },
   { to: "/expenses", label: "Dépenses", icon: Wallet },
   { to: "/debts", label: "Dettes", icon: HandCoins },
+  { to: "/agents", label: "Agents", icon: Users, ownerOnly: true },
 ] as const;
 
 function NavList({ onClick }: { onClick?: () => void }) {
   const path = useRouterState({ select: (r) => r.location.pathname });
+  const { isOwner } = useRole();
+  const items = baseNav.filter((n) => ((n as { ownerOnly?: boolean }).ownerOnly ? isOwner : true));
   return (
     <nav className="flex flex-col gap-1">
-      {nav.map((n) => {
+      {items.map((n) => {
         const active = path === n.to;
         return (
           <Link
@@ -43,14 +47,17 @@ function NavList({ onClick }: { onClick?: () => void }) {
 
 function SidebarInner({ onNav }: { onNav?: () => void }) {
   const { user, signOut } = useAuth();
+  const { shopName, role } = useRole();
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="p-5 border-b border-sidebar-border">
         <div className="flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-lg bg-gradient-gold grid place-items-center text-gold-foreground font-display font-bold">T</div>
-          <div>
-            <div className="font-display text-base font-semibold leading-tight">Teranga</div>
-            <div className="text-[11px] text-sidebar-foreground/60">Gestion boutique</div>
+          <div className="min-w-0">
+            <div className="font-display text-base font-semibold leading-tight truncate">{shopName ?? "Teranga"}</div>
+            <div className="text-[11px] text-sidebar-foreground/60">
+              {role === "owner" ? "Propriétaire" : role === "agent" ? "Agent" : "Gestion boutique"}
+            </div>
           </div>
         </div>
       </div>

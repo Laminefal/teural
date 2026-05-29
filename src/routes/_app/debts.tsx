@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Check, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useRole } from "@/lib/role";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -30,6 +31,7 @@ function formatDate(d: string | null) {
 
 function DebtsPage() {
   const { user } = useAuth();
+  const { shopId, isOwner } = useRole();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<DebtType>("creance");
@@ -46,8 +48,10 @@ function DebtsPage() {
 
   const create = useMutation({
     mutationFn: async (vars: { person_name: string; type: DebtType; amount: number; description: string; due_date: string }) => {
+      if (!shopId) throw new Error("Boutique introuvable");
       const { error } = await supabase.from("debts").insert({
         user_id: user!.id,
+        shop_id: shopId,
         person_name: vars.person_name,
         type: vars.type,
         amount: vars.amount,
@@ -102,6 +106,7 @@ function DebtsPage() {
         title="Dettes & Créances"
         subtitle="Suivez qui vous doit et à qui vous devez"
         action={
+          isOwner ? null : (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-emerald text-primary-foreground"><Plus className="h-4 w-4" /> Nouvelle entrée</Button>
@@ -141,6 +146,7 @@ function DebtsPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )
         }
       />
 
@@ -210,7 +216,7 @@ function DebtsPage() {
                     <Button variant="ghost" size="icon" title={d.is_paid ? "Rouvrir" : "Marquer soldé"} onClick={() => togglePaid.mutate({ id: d.id, is_paid: !d.is_paid })}>
                       {d.is_paid ? <RotateCcw className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => { if (confirm("Supprimer ?")) del.mutate(d.id); }}><Trash2 className="h-4 w-4" /></Button>
+                    {isOwner && <Button variant="ghost" size="icon" onClick={() => { if (confirm("Supprimer ?")) del.mutate(d.id); }}><Trash2 className="h-4 w-4" /></Button>}
                   </td>
                 </tr>
               ))}

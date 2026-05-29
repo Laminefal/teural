@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Plus, ScanLine, Trash2, ShoppingCart, X, CalendarIcon, Ban, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useRole } from "@/lib/role";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -56,6 +57,7 @@ function formatRange(r: DateRange) {
 
 function SalesPage() {
   const { user } = useAuth();
+  const { shopId, isOwner } = useRole();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [productId, setProductId] = useState<string>("");
@@ -120,10 +122,12 @@ function SalesPage() {
   const create = useMutation({
     mutationFn: async () => {
       if (!selected) throw new Error("Choisissez un produit");
+      if (!shopId) throw new Error("Boutique introuvable");
       if (qty < 1) throw new Error("Quantité invalide");
       if (selected.stock < qty) throw new Error(`Stock insuffisant (${selected.stock})`);
       const { error } = await supabase.from("sales").insert({
         user_id: user!.id,
+        shop_id: shopId,
         product_id: selected.id,
         product_name: selected.name,
         quantity: qty,
@@ -179,12 +183,14 @@ function SalesPage() {
   const createGroup = useMutation({
     mutationFn: async () => {
       if (cart.length === 0) throw new Error("Ajoutez au moins un produit");
+      if (!shopId) throw new Error("Boutique introuvable");
       for (const item of cart) {
         if (item.quantity < 1) throw new Error(`Quantité invalide pour ${item.product_name}`);
         if (item.quantity > item.max_stock) throw new Error(`Stock insuffisant pour ${item.product_name} (${item.max_stock})`);
       }
       const rows = cart.map((c) => ({
         user_id: user!.id,
+        shop_id: shopId,
         product_id: c.product_id,
         product_name: c.product_name,
         quantity: c.quantity,
@@ -242,6 +248,7 @@ function SalesPage() {
         title="Ventes"
         subtitle={`${formatRange(range)} · Total: ${formatFCFA(periodTotal)}`}
         action={
+          isOwner ? null : (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setScanOpen(true)}>
               <ScanLine className="h-4 w-4" /> Scanner
@@ -298,6 +305,7 @@ function SalesPage() {
               </DialogContent>
             </Dialog>
           </div>
+          )
         }
       />
 
@@ -523,9 +531,11 @@ function SalesPage() {
                           <Ban className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon" title="Supprimer définitivement" onClick={() => { if (confirm("Supprimer définitivement cette vente ?")) del.mutate(s.id); }}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {isOwner && (
+                        <Button variant="ghost" size="icon" title="Supprimer définitivement" onClick={() => { if (confirm("Supprimer définitivement cette vente ?")) del.mutate(s.id); }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>

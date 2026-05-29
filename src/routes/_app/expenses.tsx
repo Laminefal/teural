@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Ban, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useRole } from "@/lib/role";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,6 +24,7 @@ const CATEGORIES = ["Achat marchandise", "Loyer", "Électricité", "Eau", "Trans
 
 function ExpensesPage() {
   const { user } = useAuth();
+  const { shopId, isOwner } = useRole();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState(CATEGORIES[0]);
@@ -37,8 +39,9 @@ function ExpensesPage() {
 
   const create = useMutation({
     mutationFn: async (vars: { category: string; description: string; amount: number }) => {
+      if (!shopId) throw new Error("Boutique introuvable");
       const { error } = await supabase.from("expenses").insert({
-        user_id: user!.id, category: vars.category, description: vars.description || null, amount: vars.amount,
+        user_id: user!.id, shop_id: shopId, category: vars.category, description: vars.description || null, amount: vars.amount,
       });
       if (error) throw error;
     },
@@ -96,6 +99,7 @@ function ExpensesPage() {
         title="Dépenses"
         subtitle={`Aujourd'hui: ${formatFCFA(todayTotal)}`}
         action={
+          isOwner ? null : (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-emerald text-primary-foreground"><Plus className="h-4 w-4" /> Nouvelle dépense</Button>
@@ -126,6 +130,7 @@ function ExpensesPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )
         }
       />
 
@@ -164,9 +169,11 @@ function ExpensesPage() {
                           <Ban className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon" title="Supprimer" onClick={() => { if (confirm("Supprimer définitivement ?")) del.mutate(x.id); }}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {isOwner && (
+                        <Button variant="ghost" size="icon" title="Supprimer" onClick={() => { if (confirm("Supprimer définitivement ?")) del.mutate(x.id); }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>

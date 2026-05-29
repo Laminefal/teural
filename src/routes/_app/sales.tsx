@@ -248,6 +248,7 @@ function SalesPage() {
         title="Ventes"
         subtitle={`${formatRange(range)} · Total: ${formatFCFA(periodTotal)}`}
         action={
+          isOwner ? null : (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setScanOpen(true)}>
               <ScanLine className="h-4 w-4" /> Scanner
@@ -304,6 +305,7 @@ function SalesPage() {
               </DialogContent>
             </Dialog>
           </div>
+          )
         }
       />
 

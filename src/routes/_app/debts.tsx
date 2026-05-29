@@ -31,6 +31,7 @@ function formatDate(d: string | null) {
 
 function DebtsPage() {
   const { user } = useAuth();
+  const { shopId, isOwner } = useRole();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<DebtType>("creance");

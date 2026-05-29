@@ -23,6 +23,7 @@ export type Database = {
           id: string
           is_paid: boolean
           person_name: string
+          shop_id: string
           type: string
           updated_at: string
           user_id: string
@@ -35,6 +36,7 @@ export type Database = {
           id?: string
           is_paid?: boolean
           person_name: string
+          shop_id: string
           type: string
           updated_at?: string
           user_id: string
@@ -47,6 +49,7 @@ export type Database = {
           id?: string
           is_paid?: boolean
           person_name?: string
+          shop_id?: string
           type?: string
           updated_at?: string
           user_id?: string
@@ -62,6 +65,7 @@ export type Database = {
           description: string | null
           id: string
           is_cancelled: boolean
+          shop_id: string
           user_id: string
         }
         Insert: {
@@ -72,6 +76,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_cancelled?: boolean
+          shop_id: string
           user_id: string
         }
         Update: {
@@ -82,6 +87,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_cancelled?: boolean
+          shop_id?: string
           user_id?: string
         }
         Relationships: []
@@ -96,6 +102,7 @@ export type Database = {
           low_stock_threshold: number
           name: string
           price: number
+          shop_id: string
           sku: string | null
           stock: number
           updated_at: string
@@ -110,6 +117,7 @@ export type Database = {
           low_stock_threshold?: number
           name: string
           price?: number
+          shop_id: string
           sku?: string | null
           stock?: number
           updated_at?: string
@@ -124,6 +132,7 @@ export type Database = {
           low_stock_threshold?: number
           name?: string
           price?: number
+          shop_id?: string
           sku?: string | null
           stock?: number
           updated_at?: string
@@ -167,6 +176,7 @@ export type Database = {
           product_id: string | null
           product_name: string
           quantity: number
+          shop_id: string
           total: number
           unit_price: number
           user_id: string
@@ -179,6 +189,7 @@ export type Database = {
           product_id?: string | null
           product_name: string
           quantity?: number
+          shop_id: string
           total?: number
           unit_price?: number
           user_id: string
@@ -191,6 +202,7 @@ export type Database = {
           product_id?: string | null
           product_name?: string
           quantity?: number
+          shop_id?: string
           total?: number
           unit_price?: number
           user_id?: string
@@ -205,15 +217,83 @@ export type Database = {
           },
         ]
       }
+      shops: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          shop_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          shop_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          shop_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_user_shop_id: { Args: { _user_id: string }; Returns: string }
+      is_shop_member: {
+        Args: { _shop_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_shop_owner: {
+        Args: { _shop_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "owner" | "agent"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -340,6 +420,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["owner", "agent"],
+    },
   },
 } as const

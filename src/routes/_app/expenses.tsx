@@ -99,6 +99,7 @@ function ExpensesPage() {
         title="Dépenses"
         subtitle={`Aujourd'hui: ${formatFCFA(todayTotal)}`}
         action={
+          isOwner ? null : (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-emerald text-primary-foreground"><Plus className="h-4 w-4" /> Nouvelle dépense</Button>
@@ -129,6 +130,7 @@ function ExpensesPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )
         }
       />
 

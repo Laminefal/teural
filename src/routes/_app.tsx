@@ -1,6 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { RoleProvider } from "@/lib/role";
 import { AppShell } from "@/components/AppShell";
 
 export const Route = createFileRoute("/_app")({
@@ -17,5 +18,9 @@ function AuthGate() {
     );
   }
   if (!user) return <Navigate to="/login" />;
-  return <AppShell />;
+  return (
+    <RoleProvider>
+      <AppShell />
+    </RoleProvider>
+  );
 }

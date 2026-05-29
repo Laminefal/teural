@@ -87,8 +87,10 @@ function ProductsPage() {
         }).eq("id", p.id);
         if (error) throw error;
       } else {
+        if (!shopId) throw new Error("Boutique introuvable");
         const { error } = await supabase.from("products").insert({
-          user_id: user!.id, name: p.name!, sku: p.sku ?? null, barcode: p.barcode ?? null,
+          user_id: user!.id, shop_id: shopId,
+          name: p.name!, sku: p.sku ?? null, barcode: p.barcode ?? null,
           category: p.category ?? null,
           price: p.price ?? 0, cost: p.cost ?? 0, stock: p.stock ?? 0,
           low_stock_threshold: p.low_stock_threshold ?? 5,

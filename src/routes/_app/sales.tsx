@@ -122,10 +122,12 @@ function SalesPage() {
   const create = useMutation({
     mutationFn: async () => {
       if (!selected) throw new Error("Choisissez un produit");
+      if (!shopId) throw new Error("Boutique introuvable");
       if (qty < 1) throw new Error("Quantité invalide");
       if (selected.stock < qty) throw new Error(`Stock insuffisant (${selected.stock})`);
       const { error } = await supabase.from("sales").insert({
         user_id: user!.id,
+        shop_id: shopId,
         product_id: selected.id,
         product_name: selected.name,
         quantity: qty,

@@ -531,9 +531,11 @@ function SalesPage() {
                           <Ban className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon" title="Supprimer définitivement" onClick={() => { if (confirm("Supprimer définitivement cette vente ?")) del.mutate(s.id); }}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {isOwner && (
+                        <Button variant="ghost" size="icon" title="Supprimer définitivement" onClick={() => { if (confirm("Supprimer définitivement cette vente ?")) del.mutate(s.id); }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>

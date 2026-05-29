@@ -24,6 +24,7 @@ const CATEGORIES = ["Achat marchandise", "Loyer", "Électricité", "Eau", "Trans
 
 function ExpensesPage() {
   const { user } = useAuth();
+  const { shopId, isOwner } = useRole();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState(CATEGORIES[0]);

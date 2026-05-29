@@ -236,8 +236,8 @@ function ProductsPage() {
                     <td className="px-4 py-3 text-right text-muted-foreground">{formatFCFA(p.cost * p.stock)}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => { setEditing(p); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Supprimer "${p.name}" ?`)) del.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>
+                        {!isOwner && <Button variant="ghost" size="icon" onClick={() => { setEditing(p); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>}
+                        {isOwner && <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Supprimer "${p.name}" ?`)) del.mutate(p.id); }}><Trash2 className="h-4 w-4" /></Button>}
                       </div>
                     </td>
                   </tr>

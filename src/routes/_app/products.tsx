@@ -156,6 +156,7 @@ function ProductsPage() {
         title="Produits"
         subtitle="Gérez votre inventaire"
         action={
+          isOwner ? null : (
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setEditing(null); }}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-emerald text-primary-foreground" onClick={() => setEditing(null)}>
@@ -189,6 +190,7 @@ function ProductsPage() {
               </form>
             </DialogContent>
           </Dialog>
+          )
         }
       />
 

@@ -183,12 +183,14 @@ function SalesPage() {
   const createGroup = useMutation({
     mutationFn: async () => {
       if (cart.length === 0) throw new Error("Ajoutez au moins un produit");
+      if (!shopId) throw new Error("Boutique introuvable");
       for (const item of cart) {
         if (item.quantity < 1) throw new Error(`Quantité invalide pour ${item.product_name}`);
         if (item.quantity > item.max_stock) throw new Error(`Stock insuffisant pour ${item.product_name} (${item.max_stock})`);
       }
       const rows = cart.map((c) => ({
         user_id: user!.id,
+        shop_id: shopId,
         product_id: c.product_id,
         product_name: c.product_name,
         quantity: c.quantity,

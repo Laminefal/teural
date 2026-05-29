@@ -57,6 +57,7 @@ function formatRange(r: DateRange) {
 
 function SalesPage() {
   const { user } = useAuth();
+  const { shopId, isOwner } = useRole();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [productId, setProductId] = useState<string>("");

@@ -48,8 +48,10 @@ function DebtsPage() {
 
   const create = useMutation({
     mutationFn: async (vars: { person_name: string; type: DebtType; amount: number; description: string; due_date: string }) => {
+      if (!shopId) throw new Error("Boutique introuvable");
       const { error } = await supabase.from("debts").insert({
         user_id: user!.id,
+        shop_id: shopId,
         person_name: vars.person_name,
         type: vars.type,
         amount: vars.amount,

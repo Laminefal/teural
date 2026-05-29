@@ -32,7 +32,7 @@ export const listAgents = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
 
     const ids = (roles ?? []).map((r) => r.user_id);
-    if (ids.length === 0) return { agents: [] as Array<{ id: string; email: string; role: string; created_at: string }> };
+    if (ids.length === 0) return { agents: [] as Array<{ id: string; email: string; name: string | null; role: string; created_at: string }> };
 
     const { data: profiles } = await supabase
       .from("profiles")

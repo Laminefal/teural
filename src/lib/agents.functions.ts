@@ -5,7 +5,8 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const emailSchema = z.string().email().max(255);
 
-async function getOwnerShopId(supabase: ReturnType<typeof requireSupabaseAuth> extends never ? never : any, userId: string): Promise<string> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getOwnerShopId(supabase: any, userId: string): Promise<string> {
   const { data, error } = await supabase
     .from("user_roles")
     .select("shop_id, role")

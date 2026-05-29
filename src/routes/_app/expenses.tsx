@@ -39,8 +39,9 @@ function ExpensesPage() {
 
   const create = useMutation({
     mutationFn: async (vars: { category: string; description: string; amount: number }) => {
+      if (!shopId) throw new Error("Boutique introuvable");
       const { error } = await supabase.from("expenses").insert({
-        user_id: user!.id, category: vars.category, description: vars.description || null, amount: vars.amount,
+        user_id: user!.id, shop_id: shopId, category: vars.category, description: vars.description || null, amount: vars.amount,
       });
       if (error) throw error;
     },

@@ -216,7 +216,7 @@ function DebtsPage() {
                     <Button variant="ghost" size="icon" title={d.is_paid ? "Rouvrir" : "Marquer soldé"} onClick={() => togglePaid.mutate({ id: d.id, is_paid: !d.is_paid })}>
                       {d.is_paid ? <RotateCcw className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => { if (confirm("Supprimer ?")) del.mutate(d.id); }}><Trash2 className="h-4 w-4" /></Button>
+                    {isOwner && <Button variant="ghost" size="icon" onClick={() => { if (confirm("Supprimer ?")) del.mutate(d.id); }}><Trash2 className="h-4 w-4" /></Button>}
                   </td>
                 </tr>
               ))}

@@ -169,9 +169,11 @@ function ExpensesPage() {
                           <Ban className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="icon" title="Supprimer" onClick={() => { if (confirm("Supprimer définitivement ?")) del.mutate(x.id); }}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {isOwner && (
+                        <Button variant="ghost" size="icon" title="Supprimer" onClick={() => { if (confirm("Supprimer définitivement ?")) del.mutate(x.id); }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>

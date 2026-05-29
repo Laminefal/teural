@@ -40,6 +40,7 @@ function generateSKU(name: string): string {
 
 function ProductsPage() {
   const { user } = useAuth();
+  const { shopId, isOwner } = useRole();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);

@@ -2,7 +2,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, Users, Loader2 } from "lucide-react";
+import { Plus, Trash2, Users, Loader2, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,16 +10,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useRole } from "@/lib/role";
-import { listAgents, createAgent, deleteAgent } from "@/lib/agents.functions";
+import { listAgents, createAgent, updateAgent, deleteAgent } from "@/lib/agents.functions";
 
 export const Route = createFileRoute("/_app/agents")({
   component: AgentsPage,
 });
 
+type Agent = { id: string; email: string; name: string | null; role: string; created_at: string };
+
 function AgentsPage() {
   const { isOwner, loading } = useRole();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Agent | null>(null);
 
   const { data, isLoading } = useQuery({
     enabled: isOwner,
@@ -38,6 +41,17 @@ function AgentsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const update = useMutation({
+    mutationFn: async (vars: { agent_id: string; name?: string; email?: string; password?: string }) =>
+      await updateAgent({ data: vars }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      setEditing(null);
+      toast.success("Agent modifié");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const del = useMutation({
     mutationFn: async (agent_id: string) => await deleteAgent({ data: { agent_id } }),
     onSuccess: () => {
@@ -52,13 +66,28 @@ function AgentsPage() {
   }
   if (!isOwner) return <Navigate to="/dashboard" />;
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onCreate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     create.mutate({
       email: String(fd.get("email") || "").trim(),
       password: String(fd.get("password") || ""),
       name: String(fd.get("name") || "").trim(),
+    });
+  };
+
+  const onEdit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editing) return;
+    const fd = new FormData(e.currentTarget);
+    const name = String(fd.get("name") || "").trim();
+    const email = String(fd.get("email") || "").trim();
+    const password = String(fd.get("password") || "");
+    update.mutate({
+      agent_id: editing.id,
+      name: name || undefined,
+      email: email && email !== editing.email ? email : undefined,
+      password: password || undefined,
     });
   };
 
@@ -76,7 +105,7 @@ function AgentsPage() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Créer un agent</DialogTitle></DialogHeader>
-              <form onSubmit={onSubmit} className="space-y-3">
+              <form onSubmit={onCreate} className="space-y-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="name">Nom complet</Label>
                   <Input id="name" name="name" required placeholder="Ex: Mamadou Sow" />
@@ -127,14 +156,19 @@ function AgentsPage() {
                     {new Date(a.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => { if (confirm(`Retirer l'agent "${a.email}" ? Son compte sera supprimé.`)) del.mutate(a.id); }}
-                      disabled={del.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setEditing(a)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { if (confirm(`Retirer l'agent "${a.email}" ? Son compte sera supprimé.`)) del.mutate(a.id); }}
+                        disabled={del.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -142,6 +176,33 @@ function AgentsPage() {
           </table>
         </div>
       </Card>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Modifier l'agent</DialogTitle></DialogHeader>
+          {editing && (
+            <form onSubmit={onEdit} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-name">Nom complet</Label>
+                <Input id="edit-name" name="name" defaultValue={editing.name ?? ""} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input id="edit-email" name="email" type="email" defaultValue={editing.email} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-password">Nouveau mot de passe</Label>
+                <Input id="edit-password" name="password" type="password" minLength={6} placeholder="Laisser vide pour ne pas changer" />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={update.isPending}>
+                  {update.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Enregistrer
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

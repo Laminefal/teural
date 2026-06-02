@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppSubscriptionRouteImport } from './routes/_app/subscription'
 import { Route as AppSalesRouteImport } from './routes/_app/sales'
 import { Route as AppProductsRouteImport } from './routes/_app/products'
 import { Route as AppExpensesRouteImport } from './routes/_app/expenses'
@@ -33,6 +34,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppSubscriptionRoute = AppSubscriptionRouteImport.update({
+  id: '/subscription',
+  path: '/subscription',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppSalesRoute = AppSalesRouteImport.update({
   id: '/sales',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/expenses': typeof AppExpensesRoute
   '/products': typeof AppProductsRoute
   '/sales': typeof AppSalesRoute
+  '/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
 }
 export interface FileRoutesByTo {
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/expenses': typeof AppExpensesRoute
   '/products': typeof AppProductsRoute
   '/sales': typeof AppSalesRoute
+  '/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
 }
 export interface FileRoutesById {
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/_app/expenses': typeof AppExpensesRoute
   '/_app/products': typeof AppProductsRoute
   '/_app/sales': typeof AppSalesRoute
+  '/_app/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
 }
 export interface FileRouteTypes {
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/expenses'
     | '/products'
     | '/sales'
+    | '/subscription'
     | '/api/public/paydunya-ipn'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/expenses'
     | '/products'
     | '/sales'
+    | '/subscription'
     | '/api/public/paydunya-ipn'
   id:
     | '__root__'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/_app/expenses'
     | '/_app/products'
     | '/_app/sales'
+    | '/_app/subscription'
     | '/api/public/paydunya-ipn'
   fileRoutesById: FileRoutesById
 }
@@ -171,6 +183,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/subscription': {
+      id: '/_app/subscription'
+      path: '/subscription'
+      fullPath: '/subscription'
+      preLoaderRoute: typeof AppSubscriptionRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/sales': {
       id: '/_app/sales'
@@ -231,6 +250,7 @@ interface AppRouteChildren {
   AppExpensesRoute: typeof AppExpensesRoute
   AppProductsRoute: typeof AppProductsRoute
   AppSalesRoute: typeof AppSalesRoute
+  AppSubscriptionRoute: typeof AppSubscriptionRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -240,6 +260,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppExpensesRoute: AppExpensesRoute,
   AppProductsRoute: AppProductsRoute,
   AppSalesRoute: AppSalesRoute,
+  AppSubscriptionRoute: AppSubscriptionRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

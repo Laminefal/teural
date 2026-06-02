@@ -1,11 +1,13 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store, HandCoins, Users } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store, HandCoins, Users, Crown } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useRole } from "@/lib/role";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format";
 
 const baseNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
@@ -14,7 +16,37 @@ const baseNav = [
   { to: "/expenses", label: "Dépenses", icon: Wallet },
   { to: "/debts", label: "Dettes", icon: HandCoins },
   { to: "/agents", label: "Agents", icon: Users, ownerOnly: true },
+  { to: "/subscription", label: "Abonnement", icon: Crown, ownerOnly: true },
 ] as const;
+
+function SubscriptionBadge() {
+  const { isOwner, subscriptionStatus, subscriptionExpiresAt, trialEndsAt } = useRole();
+  if (!isOwner) return null;
+  const now = new Date();
+  const subActive = !!subscriptionExpiresAt && subscriptionExpiresAt > now && subscriptionStatus !== "free";
+  const trialActive = !subActive && !!trialEndsAt && trialEndsAt > now;
+
+  if (subActive) {
+    return (
+      <Link to="/subscription" className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 px-2.5 py-1 text-xs font-medium">
+        <Crown className="h-3 w-3" />
+        Abonné jusqu'au {formatDate(subscriptionExpiresAt!)}
+      </Link>
+    );
+  }
+  if (trialActive) {
+    return (
+      <Link to="/subscription" className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 px-2.5 py-1 text-xs font-medium">
+        Essai jusqu'au {formatDate(trialEndsAt!)}
+      </Link>
+    );
+  }
+  return (
+    <Link to="/subscription" className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 px-2.5 py-1 text-xs font-medium">
+      Compte expiré · S'abonner
+    </Link>
+  );
+}
 
 function NavList({ onClick }: { onClick?: () => void }) {
   const path = useRouterState({ select: (r) => r.location.pathname });

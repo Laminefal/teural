@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 
 type AppRole = "owner" | "agent";
+type SubStatus = "free" | "monthly" | "yearly";
 
 interface RoleCtx {
   role: AppRole | null;
@@ -12,10 +13,15 @@ interface RoleCtx {
   isOwner: boolean;
   isAgent: boolean;
   loading: boolean;
+  subscriptionStatus: SubStatus;
+  subscriptionExpiresAt: Date | null;
+  trialEndsAt: Date | null;
+  hasActiveAccess: boolean;
 }
 
 const Ctx = createContext<RoleCtx>({
   role: null, shopId: null, shopName: null, isOwner: false, isAgent: false, loading: true,
+  subscriptionStatus: "free", subscriptionExpiresAt: null, trialEndsAt: null, hasActiveAccess: false,
 });
 
 export function RoleProvider({ children }: { children: ReactNode }) {
@@ -23,22 +29,32 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   const { data, isLoading } = useQuery({
     enabled: !!user,
-    queryKey: ["user-role", user?.id],
+    queryKey: ["role-subscription", user?.id],
     queryFn: async () => {
-      const { data: roleRow, error } = await supabase
-        .from("user_roles")
-        .select("role, shop_id, shops(name)")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      if (error) throw error;
-      if (!roleRow) return { role: null, shopId: null, shopName: null };
+      const [{ data: roleRow, error: rErr }, { data: profile, error: pErr }] = await Promise.all([
+        supabase.from("user_roles").select("role, shop_id, shops(name)").eq("user_id", user!.id).maybeSingle(),
+        supabase.from("profiles").select("subscription_status, subscription_expires_at, trial_ends_at").eq("id", user!.id).maybeSingle(),
+      ]);
+      if (rErr) throw rErr;
+      if (pErr) throw pErr;
       return {
-        role: roleRow.role as AppRole,
-        shopId: roleRow.shop_id as string,
-        shopName: (roleRow as { shops: { name: string } | null }).shops?.name ?? null,
+        role: (roleRow?.role as AppRole) ?? null,
+        shopId: (roleRow?.shop_id as string) ?? null,
+        shopName: (roleRow as { shops: { name: string } | null } | null)?.shops?.name ?? null,
+        subscriptionStatus: (profile?.subscription_status as SubStatus) ?? "free",
+        subscriptionExpiresAt: profile?.subscription_expires_at ?? null,
+        trialEndsAt: profile?.trial_ends_at ?? null,
       };
     },
   });
+
+  const now = new Date();
+  const expires = data?.subscriptionExpiresAt ? new Date(data.subscriptionExpiresAt) : null;
+  const trialEnds = data?.trialEndsAt ? new Date(data.trialEndsAt) : null;
+  const subActive = !!expires && expires > now && (data?.subscriptionStatus === "monthly" || data?.subscriptionStatus === "yearly");
+  const trialActive = !subActive && !!trialEnds && trialEnds > now;
+  // Agents follow owner's shop access — we keep it permissive at owner level only for now
+  const hasActiveAccess = data?.role === "agent" ? true : (subActive || trialActive);
 
   const value: RoleCtx = {
     role: data?.role ?? null,
@@ -47,6 +63,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     isOwner: data?.role === "owner",
     isAgent: data?.role === "agent",
     loading: isLoading,
+    subscriptionStatus: data?.subscriptionStatus ?? "free",
+    subscriptionExpiresAt: expires,
+    trialEndsAt: trialEnds,
+    hasActiveAccess,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -147,6 +147,9 @@ export type Database = {
           id: string
           owner_name: string | null
           shop_name: string
+          subscription_expires_at: string | null
+          subscription_status: string
+          trial_ends_at: string | null
           updated_at: string
         }
         Insert: {
@@ -155,6 +158,9 @@ export type Database = {
           id: string
           owner_name?: string | null
           shop_name?: string
+          subscription_expires_at?: string | null
+          subscription_status?: string
+          trial_ends_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -163,6 +169,9 @@ export type Database = {
           id?: string
           owner_name?: string | null
           shop_name?: string
+          subscription_expires_at?: string | null
+          subscription_status?: string
+          trial_ends_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -238,6 +247,54 @@ export type Database = {
           name?: string
           owner_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      subscription_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          paid_at: string | null
+          paydunya_invoice_token: string | null
+          paydunya_token: string | null
+          payment_method: string | null
+          plan: string
+          shop_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          paid_at?: string | null
+          paydunya_invoice_token?: string | null
+          paydunya_token?: string | null
+          payment_method?: string | null
+          plan: string
+          shop_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          paid_at?: string | null
+          paydunya_invoice_token?: string | null
+          paydunya_token?: string | null
+          payment_method?: string | null
+          plan?: string
+          shop_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

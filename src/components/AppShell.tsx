@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useRole } from "@/lib/role";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";

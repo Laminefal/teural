@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-// PayDunya IPN webhook. PayDunya posts form-encoded data with a `data` JSON payload
+// PayDunya IPN webhook (SANDBOX MODE). PayDunya posts form-encoded data with a `data` JSON payload
 // and a `hash` (SHA512 of master key). We verify hash, then update payment + profile.
 export const Route = createFileRoute("/api/public/paydunya-ipn")({
   server: {

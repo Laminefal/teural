@@ -7,9 +7,10 @@ const PLAN_PRICES = { monthly: 15000, yearly: 150000 } as const;
 const PLAN_LABEL = { monthly: "Abonnement mensuel Teranga", yearly: "Abonnement annuel Teranga" } as const;
 
 function paydunyaBase() {
-  // Live mode
-  return "https://app.paydunya.com/api/v1";
+  // Sandbox (test) mode
+  return "https://app.paydunya.com/sandbox-api/v1";
 }
+
 
 function paydunyaHeaders() {
   return {

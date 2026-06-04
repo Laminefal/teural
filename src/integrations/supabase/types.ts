@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       debts: {
         Row: {
           amount: number
@@ -340,6 +358,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       get_user_shop_id: { Args: { _user_id: string }; Returns: string }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_shop_member: {
         Args: { _shop_id: string; _user_id: string }
         Returns: boolean

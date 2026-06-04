@@ -26,7 +26,7 @@ function AuthGate() {
 }
 
 function SubscriptionGate() {
-  const { loading, hasActiveAccess, isOwner } = useRole();
+  const { loading, hasActiveAccess, isOwner, isAdmin } = useRole();
   const path = useRouterState({ select: (r) => r.location.pathname });
 
   if (loading) {
@@ -37,8 +37,8 @@ function SubscriptionGate() {
     );
   }
 
-  // Block owners whose trial expired AND no active sub. Agents always pass.
-  if (isOwner && !hasActiveAccess && path !== "/subscription") {
+  // Admins bypass subscription. Block owners whose trial expired AND no active sub.
+  if (!isAdmin && isOwner && !hasActiveAccess && path !== "/subscription") {
     return <Navigate to="/subscription" />;
   }
 

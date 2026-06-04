@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store, HandCoins, Users, Crown } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store, HandCoins, Users, Crown, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useRole } from "@/lib/role";
@@ -16,6 +16,7 @@ const baseNav = [
   { to: "/debts", label: "Dettes", icon: HandCoins },
   { to: "/agents", label: "Agents", icon: Users, ownerOnly: true },
   { to: "/subscription", label: "Abonnement", icon: Crown, ownerOnly: true },
+  { to: "/admin", label: "Administration", icon: ShieldCheck, adminOnly: true },
 ] as const;
 
 function SubscriptionBadge() {
@@ -49,8 +50,13 @@ function SubscriptionBadge() {
 
 function NavList({ onClick }: { onClick?: () => void }) {
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const { isOwner } = useRole();
-  const items = baseNav.filter((n) => ((n as { ownerOnly?: boolean }).ownerOnly ? isOwner : true));
+  const { isOwner, isAdmin } = useRole();
+  const items = baseNav.filter((n) => {
+    const x = n as { ownerOnly?: boolean; adminOnly?: boolean };
+    if (x.adminOnly) return isAdmin;
+    if (x.ownerOnly) return isOwner;
+    return true;
+  });
   return (
     <nav className="flex flex-col gap-1">
       {items.map((n) => {

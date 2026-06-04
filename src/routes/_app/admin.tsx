@@ -143,8 +143,7 @@ function AdminPage() {
     <div className="space-y-6">
       <PageHeader
         title="Administration"
-        description="Gestion totale de la plateforme Teranga"
-        icon={<ShieldCheck className="h-5 w-5" />}
+        subtitle="Gestion totale de la plateforme Teranga"
       />
 
       {/* Stats */}

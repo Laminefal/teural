@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, Crown, Loader2, Sparkles } from "lucide-react";
+import { Check, Copy, Crown, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { formatFCFA, formatDate } from "@/lib/format";
-import { createSubscriptionInvoice, getSubscription } from "@/lib/subscription.functions";
+import { confirmPaymentSent, requestSubscriptionPayment, getSubscription } from "@/lib/subscription.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/subscription")({
@@ -31,6 +31,8 @@ const BENEFITS = [
   "Accès à l'aide au crédit (microfinance)",
 ];
 
+const ORANGE_MONEY_NUMBER = "+221 78 381 93 49";
+
 type Plan = "monthly" | "yearly";
 type Method = "orange-money-senegal" | "wave-senegal";
 
@@ -39,7 +41,8 @@ function SubscriptionPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const getSub = useServerFn(getSubscription);
-  const createInvoice = useServerFn(createSubscriptionInvoice);
+  const requestPayment = useServerFn(requestSubscriptionPayment);
+  const confirmSent = useServerFn(confirmPaymentSent);
 
   const { data: sub, isLoading } = useQuery({
     queryKey: ["subscription"],
@@ -48,6 +51,7 @@ function SubscriptionPage() {
 
   const [plan, setPlan] = useState<Plan | null>(null);
   const [method, setMethod] = useState<Method>("orange-money-senegal");
+  const [omInfo, setOmInfo] = useState<{ paymentId: string; amount: number } | null>(null);
 
   useEffect(() => {
     if (search.status === "success") {
@@ -63,9 +67,23 @@ function SubscriptionPage() {
 
   const mut = useMutation({
     mutationFn: (vars: { plan: Plan; method: Method }) =>
-      createInvoice({ data: { plan: vars.plan, paymentMethod: vars.method } }),
+      requestPayment({ data: { plan: vars.plan, paymentMethod: vars.method } }),
     onSuccess: (res) => {
-      window.location.href = res.url;
+      if (res.redirectUrl) {
+        window.location.href = res.redirectUrl;
+      } else if (res.instructions) {
+        setOmInfo({ paymentId: res.paymentId, amount: res.instructions.amount });
+        setPlan(null);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const confirmMut = useMutation({
+    mutationFn: (paymentId: string) => confirmSent({ data: { paymentId } }),
+    onSuccess: () => {
+      toast.success("Merci ! Votre paiement sera validé sous peu par notre équipe.");
+      setOmInfo(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -125,6 +143,7 @@ function SubscriptionPage() {
         </>
       )}
 
+      {/* Dialogue : choix du mode de paiement */}
       <Dialog open={!!plan} onOpenChange={(o) => !o && setPlan(null)}>
         <DialogContent>
           <DialogHeader>
@@ -138,14 +157,14 @@ function SubscriptionPage() {
               <RadioGroupItem value="orange-money-senegal" id="om" />
               <Label htmlFor="om" className="cursor-pointer flex-1">
                 <div className="font-medium">Orange Money</div>
-                <div className="text-xs text-muted-foreground">Paiement via votre compte Orange Money</div>
+                <div className="text-xs text-muted-foreground">Paiement vers notre numéro Orange Money</div>
               </Label>
             </label>
             <label className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-accent/30">
               <RadioGroupItem value="wave-senegal" id="wave" />
               <Label htmlFor="wave" className="cursor-pointer flex-1">
                 <div className="font-medium">Wave</div>
-                <div className="text-xs text-muted-foreground">Paiement via votre compte Wave</div>
+                <div className="text-xs text-muted-foreground">Redirection vers le lien de paiement Wave</div>
               </Label>
             </label>
           </RadioGroup>
@@ -155,7 +174,62 @@ function SubscriptionPage() {
               disabled={mut.isPending}
               onClick={() => plan && mut.mutate({ plan, method })}
             >
-              {mut.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Redirection…</> : "Continuer vers le paiement"}
+              {mut.isPending
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Patientez…</>
+                : method === "wave-senegal" ? "Continuer vers Wave" : "Voir les instructions Orange Money"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogue : instructions Orange Money */}
+      <Dialog open={!!omInfo} onOpenChange={(o) => !o && setOmInfo(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Paiement Orange Money</DialogTitle>
+            <DialogDescription>
+              Suivez les étapes ci-dessous pour effectuer votre paiement.
+            </DialogDescription>
+          </DialogHeader>
+          {omInfo && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">Montant à envoyer</div>
+                  <div className="font-display text-2xl font-bold">{formatFCFA(omInfo.amount)}</div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">Numéro Orange Money</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-mono text-lg font-semibold">{ORANGE_MONEY_NUMBER}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        navigator.clipboard.writeText(ORANGE_MONEY_NUMBER);
+                        toast.success("Numéro copié");
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <ol className="text-sm space-y-2 list-decimal list-inside text-muted-foreground">
+                <li>Composez <span className="font-mono text-foreground">#144#</span> sur votre téléphone Orange.</li>
+                <li>Choisissez « Transfert d'argent » puis envoyez le montant au numéro ci-dessus.</li>
+                <li>Une fois le transfert effectué, cliquez sur « J'ai payé » ci-dessous.</li>
+                <li>Notre équipe vérifie et active votre abonnement sous 24h.</li>
+              </ol>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOmInfo(null)}>Fermer</Button>
+            <Button
+              disabled={confirmMut.isPending}
+              onClick={() => omInfo && confirmMut.mutate(omInfo.paymentId)}
+            >
+              {confirmMut.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Envoi…</> : "J'ai payé"}
             </Button>
           </DialogFooter>
         </DialogContent>

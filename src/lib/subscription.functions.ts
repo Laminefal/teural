@@ -4,22 +4,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const PLAN_PRICES = { monthly: 15000, yearly: 150000 } as const;
-const PLAN_LABEL = { monthly: "Abonnement mensuel Teranga", yearly: "Abonnement annuel Teranga" } as const;
 
-function paydunyaBase() {
-  // Sandbox (test) mode
-  return "https://app.paydunya.com/sandbox-api/v1";
-}
-
-
-function paydunyaHeaders() {
-  return {
-    "Content-Type": "application/json",
-    "PAYDUNYA-MASTER-KEY": process.env.PAYDUNYA_MASTER_KEY!,
-    "PAYDUNYA-PRIVATE-KEY": process.env.PAYDUNYA_PRIVATE_KEY!,
-    "PAYDUNYA-TOKEN": process.env.PAYDUNYA_TOKEN!,
-  };
-}
+// Lien marchand Wave (le paramètre amount est ajusté selon le plan)
+const WAVE_BASE_URL = "https://pay.wave.com/m/M_sn_hCGRH3TAuixY/c/sn/";
+// Numéro Orange Money à afficher au client
+export const ORANGE_MONEY_NUMBER = "+221 78 381 93 49";
 
 export const getSubscription = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -34,7 +23,14 @@ export const getSubscription = createServerFn({ method: "GET" })
     return data;
   });
 
-export const createSubscriptionInvoice = createServerFn({ method: "POST" })
+/**
+ * Crée une demande de paiement en attente.
+ * - Pour Wave : retourne l'URL de paiement Wave (le client est redirigé).
+ * - Pour Orange Money : pas d'URL, le client paie manuellement vers le numéro affiché.
+ * Dans les deux cas un enregistrement `pending` est créé et devra être validé
+ * manuellement par un administrateur après réception du paiement.
+ */
+export const requestSubscriptionPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
     z.object({
@@ -46,7 +42,6 @@ export const createSubscriptionInvoice = createServerFn({ method: "POST" })
     const { userId } = context;
     const amount = PLAN_PRICES[data.plan];
 
-    // Get shop_id
     const { data: roleRow } = await supabaseAdmin
       .from("user_roles")
       .select("shop_id")
@@ -54,54 +49,52 @@ export const createSubscriptionInvoice = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!roleRow) throw new Error("Boutique introuvable");
 
-    const origin = process.env.APP_PUBLIC_URL ?? "https://teural.lovable.app";
-
-    const body = {
-      invoice: {
-        total_amount: amount,
-        description: PLAN_LABEL[data.plan],
-      },
-      store: { name: "Teranga" },
-      custom_data: {
+    const { data: inserted, error } = await supabaseAdmin
+      .from("subscription_payments")
+      .insert({
         user_id: userId,
         shop_id: roleRow.shop_id,
         plan: data.plan,
-      },
-      actions: {
-        callback_url: `${origin}/api/public/paydunya-ipn`,
-        return_url: `${origin}/subscription?status=success`,
-        cancel_url: `${origin}/subscription?status=cancelled`,
-      },
-    };
+        amount,
+        currency: "XOF",
+        payment_method: data.paymentMethod,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
 
-    const res = await fetch(`${paydunyaBase()}/checkout-invoice/create`, {
-      method: "POST",
-      headers: paydunyaHeaders(),
-      body: JSON.stringify(body),
-    });
-    const json = (await res.json()) as {
-      response_code?: string;
-      response_text?: string;
-      description?: string;
-      token?: string;
-      url?: string;
-    };
-
-    if (json.response_code !== "00" || !json.token || !json.url) {
-      throw new Error(json.response_text || json.description || "Erreur PayDunya");
+    if (data.paymentMethod === "wave-senegal") {
+      const url = `${WAVE_BASE_URL}?amount=${amount}`;
+      return { paymentId: inserted.id, redirectUrl: url, instructions: null };
     }
 
-    // Persist pending payment
-    await supabaseAdmin.from("subscription_payments").insert({
-      user_id: userId,
-      shop_id: roleRow.shop_id,
-      plan: data.plan,
-      amount,
-      currency: "XOF",
-      payment_method: data.paymentMethod,
-      paydunya_token: json.token,
-      status: "pending",
-    });
+    // Orange Money : instructions affichées au client
+    return {
+      paymentId: inserted.id,
+      redirectUrl: null,
+      instructions: {
+        number: ORANGE_MONEY_NUMBER,
+        amount,
+      },
+    };
+  });
 
-    return { url: json.url, token: json.token };
+/**
+ * Marque le paiement créé comme "en attente de validation" côté client
+ * (le client a cliqué "J'ai payé"). L'activation effective de l'abonnement
+ * reste manuelle : un admin doit confirmer la réception des fonds.
+ */
+export const confirmPaymentSent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ paymentId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { userId } = context;
+    const { error } = await supabaseAdmin
+      .from("subscription_payments")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", data.paymentId)
+      .eq("user_id", userId);
+    if (error) throw error;
+    return { ok: true };
   });

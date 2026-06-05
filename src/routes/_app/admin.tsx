@@ -288,6 +288,11 @@ function AdminPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1 flex-wrap">
+                        <Button size="sm" variant="default" asChild>
+                          <Link to="/admin/users/$userId" params={{ userId: r.userId }}>
+                            <Settings2 className="h-3.5 w-3.5" /> Gérer
+                          </Link>
+                        </Button>
                         <Button size="sm" variant="outline"
                           onClick={() => mActivate.mutate(r.userId)}
                           disabled={mActivate.isPending}>

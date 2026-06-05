@@ -71,10 +71,15 @@ export const listShopOwners = createServerFn({ method: "GET" })
     const userIds = (roles ?? []).map((r) => r.user_id);
     if (userIds.length === 0) return [];
 
-    const { data: profiles } = await supabaseAdmin
+    const { data: profilesRaw } = await supabaseAdmin
       .from("profiles")
-      .select("id, owner_name, subscription_status, subscription_expires_at, trial_ends_at, shop_quartier, shop_ville, created_at")
+      .select("id, owner_name, subscription_status, subscription_expires_at, trial_ends_at, created_at, shop_quartier, shop_ville" as "*")
       .in("id", userIds);
+    const profiles = profilesRaw as unknown as Array<{
+      id: string; owner_name: string | null; subscription_status: string | null;
+      subscription_expires_at: string | null; trial_ends_at: string | null;
+      created_at: string | null; shop_quartier: string | null; shop_ville: string | null;
+    }> | null;
 
     // Sales aggregates per user
     const { data: salesAgg } = await supabaseAdmin
@@ -225,7 +230,7 @@ export const getOwnerDetail = createServerFn({ method: "GET" })
       supabaseAdmin.auth.admin.getUserById(uid),
       supabaseAdmin
         .from("profiles")
-        .select("id, owner_name, shop_name, avatar_url, shop_quartier, shop_ville, shop_photo_url, subscription_status, subscription_expires_at, trial_ends_at, created_at")
+        .select("id, owner_name, shop_name, avatar_url, subscription_status, subscription_expires_at, trial_ends_at, created_at, shop_quartier, shop_ville, shop_photo_url" as "*")
         .eq("id", uid)
         .maybeSingle(),
       supabaseAdmin
@@ -319,7 +324,7 @@ export const adminUpdateOwner = createServerFn({ method: "POST" })
     if (Object.keys(profileUpdate).length > 0) {
       const { error } = await supabaseAdmin
         .from("profiles")
-        .update(profileUpdate)
+        .update(profileUpdate as never)
         .eq("id", data.userId);
       if (error) throw error;
     }

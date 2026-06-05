@@ -37,7 +37,12 @@ function SubscriptionGate() {
     );
   }
 
-  // Admins bypass subscription. Block owners whose trial expired AND no active sub.
+  // Admins are restricted to the admin page only.
+  if (isAdmin && path !== "/admin") {
+    return <Navigate to="/admin" />;
+  }
+
+  // Block owners whose trial expired AND no active sub.
   if (!isAdmin && isOwner && !hasActiveAccess && path !== "/subscription") {
     return <Navigate to="/subscription" />;
   }

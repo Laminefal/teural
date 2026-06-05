@@ -61,6 +61,11 @@ function AdminPage() {
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("all");
+  const [advOpen, setAdvOpen] = useState(false);
+  const [fVille, setFVille] = useState("");
+  const [fInactiveDays, setFInactiveDays] = useState<number | "">("");
+  const [fMaxStock, setFMaxStock] = useState<number | "">("");
+  const [fMinRevenue, setFMinRevenue] = useState<number | "">("");
   const [relanceOpen, setRelanceOpen] = useState(false);
 
   const statsQ = useQuery({ queryKey: ["admin-stats"], queryFn: () => fetchStats(), enabled: isAdmin });

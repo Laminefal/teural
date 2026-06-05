@@ -21,6 +21,7 @@ import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAgentsRouteImport } from './routes/_app/agents'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as ApiPublicPaydunyaIpnRouteImport } from './routes/api/public/paydunya-ipn'
+import { Route as AppAdminUsersUserIdRouteImport } from './routes/_app/admin.users.$userId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -81,11 +82,16 @@ const ApiPublicPaydunyaIpnRoute = ApiPublicPaydunyaIpnRouteImport.update({
   path: '/api/public/paydunya-ipn',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppAdminUsersUserIdRoute = AppAdminUsersUserIdRouteImport.update({
+  id: '/users/$userId',
+  path: '/users/$userId',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/admin': typeof AppAdminRoute
+  '/admin': typeof AppAdminRouteWithChildren
   '/agents': typeof AppAgentsRoute
   '/dashboard': typeof AppDashboardRoute
   '/debts': typeof AppDebtsRoute
@@ -94,11 +100,12 @@ export interface FileRoutesByFullPath {
   '/sales': typeof AppSalesRoute
   '/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
+  '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/admin': typeof AppAdminRoute
+  '/admin': typeof AppAdminRouteWithChildren
   '/agents': typeof AppAgentsRoute
   '/dashboard': typeof AppDashboardRoute
   '/debts': typeof AppDebtsRoute
@@ -107,13 +114,14 @@ export interface FileRoutesByTo {
   '/sales': typeof AppSalesRoute
   '/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
+  '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
-  '/_app/admin': typeof AppAdminRoute
+  '/_app/admin': typeof AppAdminRouteWithChildren
   '/_app/agents': typeof AppAgentsRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/debts': typeof AppDebtsRoute
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/_app/sales': typeof AppSalesRoute
   '/_app/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
+  '/_app/admin/users/$userId': typeof AppAdminUsersUserIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/sales'
     | '/subscription'
     | '/api/public/paydunya-ipn'
+    | '/admin/users/$userId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/sales'
     | '/subscription'
     | '/api/public/paydunya-ipn'
+    | '/admin/users/$userId'
   id:
     | '__root__'
     | '/'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/_app/sales'
     | '/_app/subscription'
     | '/api/public/paydunya-ipn'
+    | '/_app/admin/users/$userId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -259,11 +271,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPaydunyaIpnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/admin/users/$userId': {
+      id: '/_app/admin/users/$userId'
+      path: '/users/$userId'
+      fullPath: '/admin/users/$userId'
+      preLoaderRoute: typeof AppAdminUsersUserIdRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
   }
 }
 
+interface AppAdminRouteChildren {
+  AppAdminUsersUserIdRoute: typeof AppAdminUsersUserIdRoute
+}
+
+const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminUsersUserIdRoute: AppAdminUsersUserIdRoute,
+}
+
+const AppAdminRouteWithChildren = AppAdminRoute._addFileChildren(
+  AppAdminRouteChildren,
+)
+
 interface AppRouteChildren {
-  AppAdminRoute: typeof AppAdminRoute
+  AppAdminRoute: typeof AppAdminRouteWithChildren
   AppAgentsRoute: typeof AppAgentsRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppDebtsRoute: typeof AppDebtsRoute
@@ -274,7 +305,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAdminRoute: AppAdminRoute,
+  AppAdminRoute: AppAdminRouteWithChildren,
   AppAgentsRoute: AppAgentsRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppDebtsRoute: AppDebtsRoute,
@@ -295,3 +326,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

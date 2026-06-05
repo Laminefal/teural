@@ -111,18 +111,37 @@ function AdminPage() {
   const filtered = useMemo(() => {
     const rows = ownersQ.data ?? [];
     const q = search.trim().toLowerCase();
+    const villeQ = fVille.trim().toLowerCase();
+    const now = Date.now();
     return rows.filter((r) => {
       const s = statusOf(r);
       if (filter !== "all" && s !== filter) return false;
-      if (!q) return true;
-      return (
-        (r.ownerName ?? "").toLowerCase().includes(q) ||
-        (r.email ?? "").toLowerCase().includes(q) ||
-        (r.phone ?? "").toLowerCase().includes(q) ||
-        (r.shopName ?? "").toLowerCase().includes(q)
-      );
+      if (q) {
+        const match =
+          (r.ownerName ?? "").toLowerCase().includes(q) ||
+          (r.email ?? "").toLowerCase().includes(q) ||
+          (r.phone ?? "").toLowerCase().includes(q) ||
+          (r.shopName ?? "").toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      if (villeQ) {
+        const v = `${r.ville ?? ""} ${r.quartier ?? ""}`.toLowerCase();
+        if (!v.includes(villeQ)) return false;
+      }
+      if (fInactiveDays !== "" && Number(fInactiveDays) > 0) {
+        const last = r.lastSignInAt ? new Date(r.lastSignInAt).getTime() : 0;
+        const daysSince = last ? (now - last) / (24 * 3600 * 1000) : Infinity;
+        if (daysSince < Number(fInactiveDays)) return false;
+      }
+      if (fMaxStock !== "" && Number(fMaxStock) >= 0) {
+        if ((r.productsCount ?? 0) > Number(fMaxStock)) return false;
+      }
+      if (fMinRevenue !== "" && Number(fMinRevenue) > 0) {
+        if ((r.revenue ?? 0) < Number(fMinRevenue)) return false;
+      }
+      return true;
     });
-  }, [ownersQ.data, search, filter]);
+  }, [ownersQ.data, search, filter, fVille, fInactiveDays, fMaxStock, fMinRevenue]);
 
   const expiredList = useMemo(
     () => (ownersQ.data ?? []).filter((r) => statusOf(r) === "expired" && r.phone),
@@ -187,14 +206,47 @@ function AdminPage() {
                 {o.l}
               </Button>
             ))}
-            <Button size="sm" variant="ghost" onClick={() => { setSearch(""); setFilter("all"); }}>
+            <Button size="sm" variant="ghost" onClick={() => {
+              setSearch(""); setFilter("all"); setFVille("");
+              setFInactiveDays(""); setFMaxStock(""); setFMinRevenue("");
+            }}>
               Réinitialiser
+            </Button>
+            <Button size="sm" variant={advOpen ? "default" : "outline"} onClick={() => setAdvOpen((o) => !o)}>
+              <Filter className="h-3.5 w-3.5" /> Filtres avancés
             </Button>
           </div>
           <Button onClick={() => setRelanceOpen(true)} variant="secondary" className="md:ml-auto">
             <RotateCcw className="h-4 w-4" /> Relancer les expirés ({expiredList.length})
           </Button>
         </div>
+
+        {advOpen && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4 pt-4 border-t">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Quartier / Ville</label>
+              <Input value={fVille} onChange={(e) => setFVille(e.target.value)} placeholder="Ex: Dakar" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Inactifs depuis (jours)</label>
+              <Input type="number" min={0} value={fInactiveDays}
+                onChange={(e) => setFInactiveDays(e.target.value === "" ? "" : Number(e.target.value))}
+                placeholder="7, 30, 90..." />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Stock faible (≤ N produits)</label>
+              <Input type="number" min={0} value={fMaxStock}
+                onChange={(e) => setFMaxStock(e.target.value === "" ? "" : Number(e.target.value))}
+                placeholder="10" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">CA minimum (FCFA)</label>
+              <Input type="number" min={0} value={fMinRevenue}
+                onChange={(e) => setFMinRevenue(e.target.value === "" ? "" : Number(e.target.value))}
+                placeholder="500000" />
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Table */}

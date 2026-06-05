@@ -62,7 +62,6 @@ export const listShopOwners = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
 
-    // All owners via user_roles
     const { data: roles, error: rErr } = await supabaseAdmin
       .from("user_roles")
       .select("user_id, shop_id, shops(name)")
@@ -72,12 +71,44 @@ export const listShopOwners = createServerFn({ method: "GET" })
     const userIds = (roles ?? []).map((r) => r.user_id);
     if (userIds.length === 0) return [];
 
-    const { data: profiles } = await supabaseAdmin
+    const { data: profilesRaw } = await supabaseAdmin
       .from("profiles")
-      .select("id, owner_name, subscription_status, subscription_expires_at, trial_ends_at")
+      .select("id, owner_name, subscription_status, subscription_expires_at, trial_ends_at, created_at, shop_quartier, shop_ville" as "*")
       .in("id", userIds);
+    const profiles = profilesRaw as unknown as Array<{
+      id: string; owner_name: string | null; subscription_status: string | null;
+      subscription_expires_at: string | null; trial_ends_at: string | null;
+      created_at: string | null; shop_quartier: string | null; shop_ville: string | null;
+    }> | null;
 
-    // Fetch auth.users details (email, phone, last_sign_in_at) via admin API
+    // Sales aggregates per user
+    const { data: salesAgg } = await supabaseAdmin
+      .from("sales")
+      .select("user_id, total, is_cancelled")
+      .in("user_id", userIds);
+
+    const salesByUser = new Map<string, { count: number; revenue: number }>();
+    (salesAgg ?? []).forEach((s) => {
+      if (s.is_cancelled) return;
+      const cur = salesByUser.get(s.user_id) ?? { count: 0, revenue: 0 };
+      cur.count += 1;
+      cur.revenue += Number(s.total ?? 0);
+      salesByUser.set(s.user_id, cur);
+    });
+
+    // Products counts
+    const { data: prodAgg } = await supabaseAdmin
+      .from("products")
+      .select("user_id, stock")
+      .in("user_id", userIds);
+    const productsByUser = new Map<string, { count: number; stock: number }>();
+    (prodAgg ?? []).forEach((p) => {
+      const cur = productsByUser.get(p.user_id) ?? { count: 0, stock: 0 };
+      cur.count += 1;
+      cur.stock += Number(p.stock ?? 0);
+      productsByUser.set(p.user_id, cur);
+    });
+
     const authMap = new Map<string, { email: string | null; phone: string | null; last_sign_in_at: string | null }>();
     await Promise.all(
       userIds.map(async (uid) => {
@@ -95,6 +126,8 @@ export const listShopOwners = createServerFn({ method: "GET" })
     return (roles ?? []).map((r) => {
       const p = profiles?.find((x) => x.id === r.user_id);
       const a = authMap.get(r.user_id);
+      const s = salesByUser.get(r.user_id) ?? { count: 0, revenue: 0 };
+      const pr = productsByUser.get(r.user_id) ?? { count: 0, stock: 0 };
       return {
         userId: r.user_id,
         shopId: r.shop_id as string,
@@ -102,10 +135,17 @@ export const listShopOwners = createServerFn({ method: "GET" })
         ownerName: p?.owner_name ?? null,
         email: a?.email ?? null,
         phone: a?.phone ?? null,
+        quartier: p?.shop_quartier ?? null,
+        ville: p?.shop_ville ?? null,
         subscriptionStatus: (p?.subscription_status as string) ?? "free",
         subscriptionExpiresAt: p?.subscription_expires_at ?? null,
         trialEndsAt: p?.trial_ends_at ?? null,
+        createdAt: p?.created_at ?? null,
         lastSignInAt: a?.last_sign_in_at ?? null,
+        salesCount: s.count,
+        revenue: s.revenue,
+        productsCount: pr.count,
+        stockTotal: pr.stock,
       };
     });
   });
@@ -145,16 +185,23 @@ export const adminExtendSubscription = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
     const { data: p } = await supabaseAdmin
       .from("profiles")
-      .select("subscription_expires_at")
+      .select("subscription_expires_at, subscription_status")
       .eq("id", data.userId)
       .maybeSingle();
     const base = p?.subscription_expires_at && new Date(p.subscription_expires_at) > new Date()
       ? new Date(p.subscription_expires_at)
       : new Date();
     const next = new Date(base.getTime() + data.days * 24 * 3600 * 1000).toISOString();
+    const update: { subscription_expires_at: string; subscription_status?: string } = {
+      subscription_expires_at: next,
+    };
+    // If currently free/expired, mark as monthly so the gift takes effect
+    if (!p?.subscription_status || p.subscription_status === "free") {
+      update.subscription_status = "monthly";
+    }
     const { error } = await supabaseAdmin
       .from("profiles")
-      .update({ subscription_expires_at: next })
+      .update(update)
       .eq("id", data.userId);
     if (error) throw error;
     return { ok: true, expiresAt: next };
@@ -165,6 +212,198 @@ export const adminGeneratePaymentLink = createServerFn({ method: "POST" })
   .inputValidator((i) => z.object({ userId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    // Direct Wave link at 15 000 FCFA (PayDunya retiré)
     return { url: `${WAVE_BASE_URL}?amount=${MONTHLY_PRICE}`, userId: data.userId };
+  });
+
+/* ============================================================
+   USER DETAIL & MANAGEMENT
+   ============================================================ */
+
+export const getOwnerDetail = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ userId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const uid = data.userId;
+
+    const [authRes, profileRes, roleRes, paymentsRes, productsRes, salesRes] = await Promise.all([
+      supabaseAdmin.auth.admin.getUserById(uid),
+      supabaseAdmin
+        .from("profiles")
+        .select("id, owner_name, shop_name, avatar_url, subscription_status, subscription_expires_at, trial_ends_at, created_at, shop_quartier, shop_ville, shop_photo_url" as "*")
+        .eq("id", uid)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("user_roles")
+        .select("role, shop_id, shops(name)")
+        .eq("user_id", uid)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("subscription_payments")
+        .select("*")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("products")
+        .select("id, name, stock, price, cost, category")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("sales")
+        .select("total, is_cancelled")
+        .eq("user_id", uid),
+    ]);
+
+    const sales = (salesRes.data ?? []).filter((s) => !s.is_cancelled);
+    const revenue = sales.reduce((sum, s) => sum + Number(s.total ?? 0), 0);
+    const products = productsRes.data ?? [];
+    const stockTotal = products.reduce((sum, p) => sum + Number(p.stock ?? 0), 0);
+    const stockValue = products.reduce(
+      (sum, p) => sum + Number(p.stock ?? 0) * Number(p.cost ?? p.price ?? 0),
+      0,
+    );
+
+    return {
+      auth: {
+        email: authRes.data?.user?.email ?? null,
+        phone: authRes.data?.user?.phone ?? null,
+        lastSignInAt: authRes.data?.user?.last_sign_in_at ?? null,
+        createdAt: authRes.data?.user?.created_at ?? null,
+      },
+      profile: profileRes.data,
+      role: {
+        role: (roleRes.data?.role as string) ?? null,
+        shopId: (roleRes.data?.shop_id as string) ?? null,
+        shopName: (roleRes.data as { shops: { name: string } | null } | null)?.shops?.name ?? null,
+      },
+      payments: paymentsRes.data ?? [],
+      products,
+      stats: {
+        salesCount: sales.length,
+        revenue,
+        productsCount: products.length,
+        stockTotal,
+        stockValue,
+      },
+    };
+  });
+
+export const adminUpdateOwner = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z.object({
+      userId: z.string().uuid(),
+      ownerName: z.string().trim().max(120).optional(),
+      email: z.string().trim().email().max(255).optional(),
+      phone: z.string().trim().max(30).optional(),
+      shopName: z.string().trim().max(120).optional(),
+      quartier: z.string().trim().max(120).optional().nullable(),
+      ville: z.string().trim().max(120).optional().nullable(),
+      shopPhotoUrl: z.string().trim().url().max(500).optional().nullable(),
+    }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+
+    // Update auth.users (email / phone) if provided
+    const authPayload: { email?: string; phone?: string } = {};
+    if (data.email) authPayload.email = data.email;
+    if (data.phone) authPayload.phone = data.phone;
+    if (Object.keys(authPayload).length > 0) {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, authPayload);
+      if (error) throw error;
+    }
+
+    // Update profile
+    const profileUpdate: Record<string, unknown> = {};
+    if (data.ownerName !== undefined) profileUpdate.owner_name = data.ownerName;
+    if (data.shopName !== undefined) profileUpdate.shop_name = data.shopName;
+    if (data.quartier !== undefined) profileUpdate.shop_quartier = data.quartier;
+    if (data.ville !== undefined) profileUpdate.shop_ville = data.ville;
+    if (data.shopPhotoUrl !== undefined) profileUpdate.shop_photo_url = data.shopPhotoUrl;
+    if (Object.keys(profileUpdate).length > 0) {
+      const { error } = await supabaseAdmin
+        .from("profiles")
+        .update(profileUpdate as never)
+        .eq("id", data.userId);
+      if (error) throw error;
+    }
+
+    // Update shop name in shops table too
+    if (data.shopName !== undefined) {
+      const { data: role } = await supabaseAdmin
+        .from("user_roles")
+        .select("shop_id")
+        .eq("user_id", data.userId)
+        .maybeSingle();
+      if (role?.shop_id) {
+        await supabaseAdmin.from("shops").update({ name: data.shopName }).eq("id", role.shop_id);
+      }
+    }
+
+    return { ok: true };
+  });
+
+export const adminResetPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ userId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { data: user } = await supabaseAdmin.auth.admin.getUserById(data.userId);
+    if (!user?.user?.email) throw new Error("Aucun email associé à ce compte");
+    const { data: link, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: "recovery",
+      email: user.user.email,
+    });
+    if (error) throw error;
+    return {
+      ok: true,
+      email: user.user.email,
+      link: link?.properties?.action_link ?? null,
+    };
+  });
+
+export const adminChangeRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z.object({ userId: z.string().uuid(), role: z.enum(["owner", "agent"]) }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { error } = await supabaseAdmin
+      .from("user_roles")
+      .update({ role: data.role })
+      .eq("user_id", data.userId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const adminDeleteOwner = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z.object({ userId: z.string().uuid(), confirm: z.literal(true) }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    // Best-effort cleanup. Deleting auth user typically cascades via FK.
+    const { data: role } = await supabaseAdmin
+      .from("user_roles")
+      .select("shop_id")
+      .eq("user_id", data.userId)
+      .maybeSingle();
+    const shopId = role?.shop_id as string | undefined;
+
+    if (shopId) {
+      await supabaseAdmin.from("sales").delete().eq("shop_id", shopId);
+      await supabaseAdmin.from("expenses").delete().eq("shop_id", shopId);
+      await supabaseAdmin.from("debts").delete().eq("shop_id", shopId);
+      await supabaseAdmin.from("products").delete().eq("shop_id", shopId);
+      await supabaseAdmin.from("user_roles").delete().eq("shop_id", shopId);
+      await supabaseAdmin.from("subscription_payments").delete().eq("shop_id", shopId);
+      await supabaseAdmin.from("shops").delete().eq("id", shopId);
+    }
+    await supabaseAdmin.from("profiles").delete().eq("id", data.userId);
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
+    if (error) throw error;
+    return { ok: true };
   });

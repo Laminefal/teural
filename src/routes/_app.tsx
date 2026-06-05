@@ -37,8 +37,8 @@ function SubscriptionGate() {
     );
   }
 
-  // Admins are restricted to the admin page only.
-  if (isAdmin && path !== "/admin") {
+  // Admins are restricted to the admin section only.
+  if (isAdmin && !path.startsWith("/admin")) {
     return <Navigate to="/admin" />;
   }
 

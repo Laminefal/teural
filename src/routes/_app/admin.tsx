@@ -1,10 +1,10 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Search, Loader2, Users, BadgeCheck, Wallet, Clock, Power, PowerOff, CalendarPlus,
-  Link as LinkIcon, MessageCircle, RotateCcw, Copy, ShieldCheck,
+  Link as LinkIcon, MessageCircle, RotateCcw, Copy, Settings2, Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";

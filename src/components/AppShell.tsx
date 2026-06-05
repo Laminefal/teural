@@ -53,7 +53,8 @@ function NavList({ onClick }: { onClick?: () => void }) {
   const { isOwner, isAdmin } = useRole();
   const items = baseNav.filter((n) => {
     const x = n as { ownerOnly?: boolean; adminOnly?: boolean };
-    if (x.adminOnly) return isAdmin;
+    if (isAdmin) return !!x.adminOnly;
+    if (x.adminOnly) return false;
     if (x.ownerOnly) return isOwner;
     return true;
   });

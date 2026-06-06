@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store, HandCoins, Users, Crown, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store, HandCoins, Users, Crown, ShieldCheck, UserCog } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useRole } from "@/lib/role";
@@ -17,6 +17,8 @@ const baseNav = [
   { to: "/agents", label: "Agents", icon: Users, ownerOnly: true },
   { to: "/subscription", label: "Abonnement", icon: Crown, ownerOnly: true },
   { to: "/admin", label: "Administration", icon: ShieldCheck, adminOnly: true },
+  { to: "/admin/users", label: "Gestion des users", icon: UserCog, adminOnly: true },
+
 ] as const;
 
 function SubscriptionBadge() {

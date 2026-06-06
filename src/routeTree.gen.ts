@@ -21,6 +21,7 @@ import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAgentsRouteImport } from './routes/_app/agents'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as ApiPublicPaydunyaIpnRouteImport } from './routes/api/public/paydunya-ipn'
+import { Route as AppAdminUsersIndexRouteImport } from './routes/_app/admin.users.index'
 import { Route as AppAdminUsersUserIdRouteImport } from './routes/_app/admin.users.$userId'
 
 const LoginRoute = LoginRouteImport.update({
@@ -82,6 +83,11 @@ const ApiPublicPaydunyaIpnRoute = ApiPublicPaydunyaIpnRouteImport.update({
   path: '/api/public/paydunya-ipn',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppAdminUsersIndexRoute = AppAdminUsersIndexRouteImport.update({
+  id: '/users/',
+  path: '/users/',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 const AppAdminUsersUserIdRoute = AppAdminUsersUserIdRouteImport.update({
   id: '/users/$userId',
   path: '/users/$userId',
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
+  '/admin/users/': typeof AppAdminUsersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
+  '/admin/users': typeof AppAdminUsersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/_app/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
   '/_app/admin/users/$userId': typeof AppAdminUsersUserIdRoute
+  '/_app/admin/users/': typeof AppAdminUsersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/subscription'
     | '/api/public/paydunya-ipn'
     | '/admin/users/$userId'
+    | '/admin/users/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/subscription'
     | '/api/public/paydunya-ipn'
     | '/admin/users/$userId'
+    | '/admin/users'
   id:
     | '__root__'
     | '/'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/_app/subscription'
     | '/api/public/paydunya-ipn'
     | '/_app/admin/users/$userId'
+    | '/_app/admin/users/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -271,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPaydunyaIpnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/admin/users/': {
+      id: '/_app/admin/users/'
+      path: '/users'
+      fullPath: '/admin/users/'
+      preLoaderRoute: typeof AppAdminUsersIndexRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
     '/_app/admin/users/$userId': {
       id: '/_app/admin/users/$userId'
       path: '/users/$userId'
@@ -283,10 +302,12 @@ declare module '@tanstack/react-router' {
 
 interface AppAdminRouteChildren {
   AppAdminUsersUserIdRoute: typeof AppAdminUsersUserIdRoute
+  AppAdminUsersIndexRoute: typeof AppAdminUsersIndexRoute
 }
 
 const AppAdminRouteChildren: AppAdminRouteChildren = {
   AppAdminUsersUserIdRoute: AppAdminUsersUserIdRoute,
+  AppAdminUsersIndexRoute: AppAdminUsersIndexRoute,
 }
 
 const AppAdminRouteWithChildren = AppAdminRoute._addFileChildren(
@@ -326,3 +347,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

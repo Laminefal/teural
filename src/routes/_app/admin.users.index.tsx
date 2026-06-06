@@ -1,12 +1,8 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  Search, Loader2, Users, BadgeCheck, Wallet, Clock, Power, PowerOff, CalendarPlus,
-  Link as LinkIcon, MessageCircle, RotateCcw, Copy, Settings2, Filter,
-} from "lucide-react";
-import { toast } from "sonner";
+import { Search, Loader2, Settings2, Filter } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,20 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { useRole } from "@/lib/role";
 import { formatFCFA, formatDate, formatDateTime } from "@/lib/format";
-import {
-  getAdminStats, listShopOwners,
-  adminActivateSubscription, adminDeactivateSubscription, adminExtendSubscription,
-  adminGeneratePaymentLink,
-} from "@/lib/admin.functions";
+import { listShopOwners } from "@/lib/admin.functions";
 
-export const Route = createFileRoute("/_app/admin")({
-  component: AdminPage,
+export const Route = createFileRoute("/_app/admin/users/")({
+  component: AdminUsersPage,
 });
 
 type StatusFilter = "all" | "active" | "expired" | "free";
@@ -48,16 +36,9 @@ function StatusBadge({ s }: { s: "active" | "expired" | "free" }) {
   return <Badge className="bg-muted text-muted-foreground border border-border hover:bg-muted">● Gratuit</Badge>;
 }
 
-function AdminPage() {
+function AdminUsersPage() {
   const { isAdmin, loading } = useRole();
-  const qc = useQueryClient();
-
-  const fetchStats = useServerFn(getAdminStats);
   const fetchOwners = useServerFn(listShopOwners);
-  const activate = useServerFn(adminActivateSubscription);
-  const deactivate = useServerFn(adminDeactivateSubscription);
-  const extend = useServerFn(adminExtendSubscription);
-  const genLink = useServerFn(adminGeneratePaymentLink);
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("all");
@@ -66,47 +47,8 @@ function AdminPage() {
   const [fInactiveDays, setFInactiveDays] = useState<number | "">("");
   const [fMaxStock, setFMaxStock] = useState<number | "">("");
   const [fMinRevenue, setFMinRevenue] = useState<number | "">("");
-  const [relanceOpen, setRelanceOpen] = useState(false);
 
-  const statsQ = useQuery({ queryKey: ["admin-stats"], queryFn: () => fetchStats(), enabled: isAdmin });
   const ownersQ = useQuery({ queryKey: ["admin-owners"], queryFn: () => fetchOwners(), enabled: isAdmin });
-
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["admin-stats"] });
-    qc.invalidateQueries({ queryKey: ["admin-owners"] });
-  };
-
-  const mActivate = useMutation({
-    mutationFn: (userId: string) => activate({ data: { userId, plan: "monthly" } }),
-    onSuccess: () => { toast.success("Compte activé pour 30 jours"); invalidate(); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const mDeactivate = useMutation({
-    mutationFn: (userId: string) => deactivate({ data: { userId } }),
-    onSuccess: () => { toast.success("Compte désactivé"); invalidate(); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const mExtend = useMutation({
-    mutationFn: (userId: string) => extend({ data: { userId, days: 30 } }),
-    onSuccess: () => { toast.success("+30 jours ajoutés"); invalidate(); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const handleLink = async (userId: string) => {
-    try {
-      const { url } = await genLink({ data: { userId } });
-      await navigator.clipboard.writeText(url);
-      toast.success("Lien copié", { description: url });
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  };
-
-  const handleWhatsapp = (phone: string | null) => {
-    if (!phone) return toast.error("Aucun numéro de téléphone enregistré");
-    const clean = phone.replace(/[^0-9]/g, "");
-    window.open(`https://wa.me/${clean}`, "_blank");
-  };
 
   const filtered = useMemo(() => {
     const rows = ownersQ.data ?? [];
@@ -143,15 +85,6 @@ function AdminPage() {
     });
   }, [ownersQ.data, search, filter, fVille, fInactiveDays, fMaxStock, fMinRevenue]);
 
-  const expiredList = useMemo(
-    () => (ownersQ.data ?? []).filter((r) => statusOf(r) === "expired" && r.phone),
-    [ownersQ.data],
-  );
-  const relanceMessage = useMemo(() => {
-    const numbers = expiredList.map((r) => `- ${r.ownerName ?? r.email ?? "Boutiquier"} : ${r.phone}`).join("\n");
-    return `Bonjour 👋\n\nVotre abonnement Teranga est expiré. Renouvelez dès maintenant pour 15 000 FCFA et continuez à gérer votre boutique sans interruption.\n\nLien Wave : https://pay.wave.com/m/M_sn_hCGRH3TAuixY/c/sn/?amount=15000\n\nBoutiquiers concernés :\n${numbers}`;
-  }, [expiredList]);
-
   if (loading) {
     return (
       <div className="min-h-[40vh] grid place-items-center">
@@ -161,24 +94,13 @@ function AdminPage() {
   }
   if (!isAdmin) return <Navigate to="/dashboard" />;
 
-  const s = statsQ.data;
-
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Administration"
-        subtitle="Gestion totale de la plateforme Teranga"
+        title="Gestion des users"
+        subtitle="Gérer les comptes, abonnements et informations des boutiquiers"
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label="Boutiquiers inscrits" value={s?.totalOwners ?? "—"} icon={<Users className="h-4 w-4" />} />
-        <StatCard label="Abonnés actifs" value={s?.activeSubs ?? "—"} icon={<BadgeCheck className="h-4 w-4 text-emerald-600" />} />
-        <StatCard label="CA du mois" value={s ? formatFCFA(s.monthlyRevenue) : "—"} icon={<Wallet className="h-4 w-4 text-accent" />} />
-        <StatCard label="Expirent < 7 jours" value={s?.expiringSoon ?? "—"} icon={<Clock className="h-4 w-4 text-amber-600" />} />
-      </div>
-
-      {/* Filters */}
       <Card className="p-4">
         <div className="flex flex-col md:flex-row gap-3 md:items-center">
           <div className="relative flex-1">
@@ -216,9 +138,6 @@ function AdminPage() {
               <Filter className="h-3.5 w-3.5" /> Filtres avancés
             </Button>
           </div>
-          <Button onClick={() => setRelanceOpen(true)} variant="secondary" className="md:ml-auto">
-            <RotateCcw className="h-4 w-4" /> Relancer les expirés ({expiredList.length})
-          </Button>
         </div>
 
         {advOpen && (
@@ -249,7 +168,6 @@ function AdminPage() {
         )}
       </Card>
 
-      {/* Table */}
       <Card className="overflow-hidden">
         {ownersQ.isLoading ? (
           <div className="p-10 grid place-items-center"><Loader2 className="h-5 w-5 animate-spin text-accent" /></div>
@@ -260,12 +178,14 @@ function AdminPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nom</TableHead>
+                <TableHead>Boutique</TableHead>
                 <TableHead>Téléphone</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Statut</TableHead>
-                <TableHead>Fin d'abonnement</TableHead>
+                <TableHead>Fin abonnement</TableHead>
                 <TableHead>Dernière connexion</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">CA</TableHead>
+                <TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -273,10 +193,8 @@ function AdminPage() {
                 const st = statusOf(r);
                 return (
                   <TableRow key={r.userId}>
-                    <TableCell>
-                      <div className="font-medium">{r.ownerName ?? "—"}</div>
-                      <div className="text-xs text-muted-foreground">{r.shopName ?? ""}</div>
-                    </TableCell>
+                    <TableCell className="font-medium">{r.ownerName ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{r.shopName ?? "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{r.phone ?? "—"}</TableCell>
                     <TableCell className="text-xs">{r.email ?? "—"}</TableCell>
                     <TableCell><StatusBadge s={st} /></TableCell>
@@ -286,32 +204,16 @@ function AdminPage() {
                     <TableCell className="text-xs">
                       {r.lastSignInAt ? formatDateTime(r.lastSignInAt) : "Jamais"}
                     </TableCell>
+                    <TableCell className="text-right text-xs">{formatFCFA(r.revenue ?? 0)}</TableCell>
                     <TableCell>
-                      <div className="flex justify-end gap-1 flex-wrap">
-                        <Button size="sm" variant="outline"
-                          onClick={() => mActivate.mutate(r.userId)}
-                          disabled={mActivate.isPending}>
-                          <Power className="h-3.5 w-3.5" /> Activer
-                        </Button>
-                        <Button size="sm" variant="outline"
-                          onClick={() => mDeactivate.mutate(r.userId)}
-                          disabled={mDeactivate.isPending}>
-                          <PowerOff className="h-3.5 w-3.5" /> Désactiver
-                        </Button>
-                        <Button size="sm" variant="outline"
-                          onClick={() => mExtend.mutate(r.userId)}
-                          disabled={mExtend.isPending}>
-                          <CalendarPlus className="h-3.5 w-3.5" /> +30 j
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleLink(r.userId)}>
-                          <LinkIcon className="h-3.5 w-3.5" /> Lien
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleWhatsapp(r.phone)}>
-                          <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                      <div className="flex justify-end">
+                        <Button size="sm" asChild>
+                          <Link to="/admin/users/$userId" params={{ userId: r.userId }}>
+                            <Settings2 className="h-3.5 w-3.5" /> Gérer
+                          </Link>
                         </Button>
                       </div>
                     </TableCell>
-
                   </TableRow>
                 );
               })}
@@ -319,40 +221,6 @@ function AdminPage() {
           </Table>
         )}
       </Card>
-
-      {/* Relance dialog */}
-      <Dialog open={relanceOpen} onOpenChange={setRelanceOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Relancer les abonnements expirés</DialogTitle>
-            <DialogDescription>
-              {expiredList.length} boutiquier(s) à relancer. Copiez le message ci-dessous et envoyez-le par WhatsApp.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea value={relanceMessage} readOnly className="min-h-[260px] font-mono text-xs" />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRelanceOpen(false)}>Fermer</Button>
-            <Button onClick={async () => {
-              await navigator.clipboard.writeText(relanceMessage);
-              toast.success("Message copié dans le presse-papier");
-            }}>
-              <Copy className="h-4 w-4" /> Copier le message
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
-  );
-}
-
-function StatCard({ label, value, icon }: { label: string; value: React.ReactNode; icon: React.ReactNode }) {
-  return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{label}</span>
-        {icon}
-      </div>
-      <div className="mt-2 text-2xl font-display font-semibold">{value}</div>
-    </Card>
   );
 }

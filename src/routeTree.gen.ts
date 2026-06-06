@@ -20,6 +20,7 @@ import { Route as AppDebtsRouteImport } from './routes/_app/debts'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAgentsRouteImport } from './routes/_app/agents'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
+import { Route as AppAdminIndexRouteImport } from './routes/_app/admin.index'
 import { Route as ApiPublicPaydunyaIpnRouteImport } from './routes/api/public/paydunya-ipn'
 import { Route as AppAdminUsersIndexRouteImport } from './routes/_app/admin.users.index'
 import { Route as AppAdminUsersUserIdRouteImport } from './routes/_app/admin.users.$userId'
@@ -78,6 +79,11 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 const ApiPublicPaydunyaIpnRoute = ApiPublicPaydunyaIpnRouteImport.update({
   id: '/api/public/paydunya-ipn',
   path: '/api/public/paydunya-ipn',
@@ -106,13 +112,13 @@ export interface FileRoutesByFullPath {
   '/sales': typeof AppSalesRoute
   '/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
+  '/admin/': typeof AppAdminIndexRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
   '/admin/users/': typeof AppAdminUsersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/admin': typeof AppAdminRouteWithChildren
   '/agents': typeof AppAgentsRoute
   '/dashboard': typeof AppDashboardRoute
   '/debts': typeof AppDebtsRoute
@@ -121,6 +127,7 @@ export interface FileRoutesByTo {
   '/sales': typeof AppSalesRoute
   '/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
+  '/admin': typeof AppAdminIndexRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
   '/admin/users': typeof AppAdminUsersIndexRoute
 }
@@ -138,6 +145,7 @@ export interface FileRoutesById {
   '/_app/sales': typeof AppSalesRoute
   '/_app/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
+  '/_app/admin/': typeof AppAdminIndexRoute
   '/_app/admin/users/$userId': typeof AppAdminUsersUserIdRoute
   '/_app/admin/users/': typeof AppAdminUsersIndexRoute
 }
@@ -155,13 +163,13 @@ export interface FileRouteTypes {
     | '/sales'
     | '/subscription'
     | '/api/public/paydunya-ipn'
+    | '/admin/'
     | '/admin/users/$userId'
     | '/admin/users/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
-    | '/admin'
     | '/agents'
     | '/dashboard'
     | '/debts'
@@ -170,6 +178,7 @@ export interface FileRouteTypes {
     | '/sales'
     | '/subscription'
     | '/api/public/paydunya-ipn'
+    | '/admin'
     | '/admin/users/$userId'
     | '/admin/users'
   id:
@@ -186,6 +195,7 @@ export interface FileRouteTypes {
     | '/_app/sales'
     | '/_app/subscription'
     | '/api/public/paydunya-ipn'
+    | '/_app/admin/'
     | '/_app/admin/users/$userId'
     | '/_app/admin/users/'
   fileRoutesById: FileRoutesById
@@ -276,6 +286,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/admin/': {
+      id: '/_app/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AppAdminIndexRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
     '/api/public/paydunya-ipn': {
       id: '/api/public/paydunya-ipn'
       path: '/api/public/paydunya-ipn'
@@ -301,11 +318,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppAdminRouteChildren {
+  AppAdminIndexRoute: typeof AppAdminIndexRoute
   AppAdminUsersUserIdRoute: typeof AppAdminUsersUserIdRoute
   AppAdminUsersIndexRoute: typeof AppAdminUsersIndexRoute
 }
 
 const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminIndexRoute: AppAdminIndexRoute,
   AppAdminUsersUserIdRoute: AppAdminUsersUserIdRoute,
   AppAdminUsersIndexRoute: AppAdminUsersIndexRoute,
 }

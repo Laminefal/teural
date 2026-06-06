@@ -19,7 +19,7 @@ import { Route as AppExpensesRouteImport } from './routes/_app/expenses'
 import { Route as AppDebtsRouteImport } from './routes/_app/debts'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppAgentsRouteImport } from './routes/_app/agents'
-import { Route as AppAdminRouteImport } from './routes/_app/admin'
+import { Route as AppAdminIndexRouteImport } from './routes/_app/admin.index'
 import { Route as ApiPublicPaydunyaIpnRouteImport } from './routes/api/public/paydunya-ipn'
 import { Route as AppAdminUsersIndexRouteImport } from './routes/_app/admin.users.index'
 import { Route as AppAdminUsersUserIdRouteImport } from './routes/_app/admin.users.$userId'
@@ -73,9 +73,9 @@ const AppAgentsRoute = AppAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAdminRoute = AppAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
   getParentRoute: () => AppRoute,
 } as any)
 const ApiPublicPaydunyaIpnRoute = ApiPublicPaydunyaIpnRouteImport.update({
@@ -84,20 +84,19 @@ const ApiPublicPaydunyaIpnRoute = ApiPublicPaydunyaIpnRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppAdminUsersIndexRoute = AppAdminUsersIndexRouteImport.update({
-  id: '/users/',
-  path: '/users/',
-  getParentRoute: () => AppAdminRoute,
+  id: '/admin/users/',
+  path: '/admin/users/',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppAdminUsersUserIdRoute = AppAdminUsersUserIdRouteImport.update({
-  id: '/users/$userId',
-  path: '/users/$userId',
-  getParentRoute: () => AppAdminRoute,
+  id: '/admin/users/$userId',
+  path: '/admin/users/$userId',
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/admin': typeof AppAdminRouteWithChildren
   '/agents': typeof AppAgentsRoute
   '/dashboard': typeof AppDashboardRoute
   '/debts': typeof AppDebtsRoute
@@ -106,13 +105,13 @@ export interface FileRoutesByFullPath {
   '/sales': typeof AppSalesRoute
   '/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
+  '/admin/': typeof AppAdminIndexRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
   '/admin/users/': typeof AppAdminUsersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/admin': typeof AppAdminRouteWithChildren
   '/agents': typeof AppAgentsRoute
   '/dashboard': typeof AppDashboardRoute
   '/debts': typeof AppDebtsRoute
@@ -121,6 +120,7 @@ export interface FileRoutesByTo {
   '/sales': typeof AppSalesRoute
   '/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
+  '/admin': typeof AppAdminIndexRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
   '/admin/users': typeof AppAdminUsersIndexRoute
 }
@@ -129,7 +129,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
-  '/_app/admin': typeof AppAdminRouteWithChildren
   '/_app/agents': typeof AppAgentsRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/debts': typeof AppDebtsRoute
@@ -138,6 +137,7 @@ export interface FileRoutesById {
   '/_app/sales': typeof AppSalesRoute
   '/_app/subscription': typeof AppSubscriptionRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
+  '/_app/admin/': typeof AppAdminIndexRoute
   '/_app/admin/users/$userId': typeof AppAdminUsersUserIdRoute
   '/_app/admin/users/': typeof AppAdminUsersIndexRoute
 }
@@ -146,7 +146,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
-    | '/admin'
     | '/agents'
     | '/dashboard'
     | '/debts'
@@ -155,13 +154,13 @@ export interface FileRouteTypes {
     | '/sales'
     | '/subscription'
     | '/api/public/paydunya-ipn'
+    | '/admin/'
     | '/admin/users/$userId'
     | '/admin/users/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
-    | '/admin'
     | '/agents'
     | '/dashboard'
     | '/debts'
@@ -170,6 +169,7 @@ export interface FileRouteTypes {
     | '/sales'
     | '/subscription'
     | '/api/public/paydunya-ipn'
+    | '/admin'
     | '/admin/users/$userId'
     | '/admin/users'
   id:
@@ -177,7 +177,6 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/login'
-    | '/_app/admin'
     | '/_app/agents'
     | '/_app/dashboard'
     | '/_app/debts'
@@ -186,6 +185,7 @@ export interface FileRouteTypes {
     | '/_app/sales'
     | '/_app/subscription'
     | '/api/public/paydunya-ipn'
+    | '/_app/admin/'
     | '/_app/admin/users/$userId'
     | '/_app/admin/users/'
   fileRoutesById: FileRoutesById
@@ -269,11 +269,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAgentsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/admin': {
-      id: '/_app/admin'
+    '/_app/admin/': {
+      id: '/_app/admin/'
       path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AppAdminRouteImport
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AppAdminIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/api/public/paydunya-ipn': {
@@ -285,37 +285,22 @@ declare module '@tanstack/react-router' {
     }
     '/_app/admin/users/': {
       id: '/_app/admin/users/'
-      path: '/users'
+      path: '/admin/users'
       fullPath: '/admin/users/'
       preLoaderRoute: typeof AppAdminUsersIndexRouteImport
-      parentRoute: typeof AppAdminRoute
+      parentRoute: typeof AppRoute
     }
     '/_app/admin/users/$userId': {
       id: '/_app/admin/users/$userId'
-      path: '/users/$userId'
+      path: '/admin/users/$userId'
       fullPath: '/admin/users/$userId'
       preLoaderRoute: typeof AppAdminUsersUserIdRouteImport
-      parentRoute: typeof AppAdminRoute
+      parentRoute: typeof AppRoute
     }
   }
 }
 
-interface AppAdminRouteChildren {
-  AppAdminUsersUserIdRoute: typeof AppAdminUsersUserIdRoute
-  AppAdminUsersIndexRoute: typeof AppAdminUsersIndexRoute
-}
-
-const AppAdminRouteChildren: AppAdminRouteChildren = {
-  AppAdminUsersUserIdRoute: AppAdminUsersUserIdRoute,
-  AppAdminUsersIndexRoute: AppAdminUsersIndexRoute,
-}
-
-const AppAdminRouteWithChildren = AppAdminRoute._addFileChildren(
-  AppAdminRouteChildren,
-)
-
 interface AppRouteChildren {
-  AppAdminRoute: typeof AppAdminRouteWithChildren
   AppAgentsRoute: typeof AppAgentsRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppDebtsRoute: typeof AppDebtsRoute
@@ -323,10 +308,12 @@ interface AppRouteChildren {
   AppProductsRoute: typeof AppProductsRoute
   AppSalesRoute: typeof AppSalesRoute
   AppSubscriptionRoute: typeof AppSubscriptionRoute
+  AppAdminIndexRoute: typeof AppAdminIndexRoute
+  AppAdminUsersUserIdRoute: typeof AppAdminUsersUserIdRoute
+  AppAdminUsersIndexRoute: typeof AppAdminUsersIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAdminRoute: AppAdminRouteWithChildren,
   AppAgentsRoute: AppAgentsRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppDebtsRoute: AppDebtsRoute,
@@ -334,6 +321,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppProductsRoute: AppProductsRoute,
   AppSalesRoute: AppSalesRoute,
   AppSubscriptionRoute: AppSubscriptionRoute,
+  AppAdminIndexRoute: AppAdminIndexRoute,
+  AppAdminUsersUserIdRoute: AppAdminUsersUserIdRoute,
+  AppAdminUsersIndexRoute: AppAdminUsersIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -347,3 +337,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

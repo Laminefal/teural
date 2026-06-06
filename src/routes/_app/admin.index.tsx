@@ -28,7 +28,7 @@ import {
   adminGeneratePaymentLink,
 } from "@/lib/admin.functions";
 
-export const Route = createFileRoute("/_app/admin")({
+export const Route = createFileRoute("/_app/admin/")({
   component: AdminPage,
 });
 

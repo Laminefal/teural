@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useRole } from "@/lib/role";
-import { listShopsWithMembers, adminUpdateOwner } from "@/lib/admin.functions";
+import { listShopsWithMembers, adminUpdateOwner, adminSetPassword } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_app/admin/users/")({
   component: AdminUsersPage,
@@ -38,12 +38,14 @@ type EditState = {
   name: string;
   email: string;
   phone: string;
+  password: string;
 };
 
 function AdminUsersPage() {
   const { isAdmin, loading } = useRole();
   const fetchShops = useServerFn(listShopsWithMembers);
   const updateFn = useServerFn(adminUpdateOwner);
+  const setPasswordFn = useServerFn(adminSetPassword);
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -57,8 +59,8 @@ function AdminUsersPage() {
   });
 
   const updateMut = useMutation({
-    mutationFn: (v: EditState) =>
-      updateFn({
+    mutationFn: async (v: EditState) => {
+      await updateFn({
         data: {
           userId: v.userId,
           ownerName: v.name || undefined,
@@ -66,7 +68,11 @@ function AdminUsersPage() {
           phone: v.phone || undefined,
           shopName: v.isOwner ? v.shopName || undefined : undefined,
         },
-      }),
+      });
+      if (v.password && v.password.length >= 6) {
+        await setPasswordFn({ data: { userId: v.userId, password: v.password } });
+      }
+    },
     onSuccess: () => {
       toast.success("Informations mises à jour");
       qc.invalidateQueries({ queryKey: ["admin-shops-members"] });
@@ -163,6 +169,7 @@ function AdminUsersPage() {
                             name: owner.name ?? "",
                             email: owner.email ?? "",
                             phone: owner.phone ?? "",
+                            password: "",
                           })
                         }
                       />
@@ -187,6 +194,7 @@ function AdminUsersPage() {
                               name: a.name ?? "",
                               email: a.email ?? "",
                               phone: a.phone ?? "",
+                              password: "",
                             })
                           }
                         />
@@ -224,6 +232,17 @@ function AdminUsersPage() {
               <div className="space-y-1.5">
                 <Label>Téléphone</Label>
                 <Input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Nouveau mot de passe</Label>
+                <Input
+                  type="text"
+                  autoComplete="new-password"
+                  placeholder="Laisser vide pour ne pas changer (min. 6 caractères)"
+                  value={edit.password}
+                  onChange={(e) => setEdit({ ...edit, password: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Renseignez uniquement si vous voulez le remplacer.</p>
               </div>
             </div>
           )}

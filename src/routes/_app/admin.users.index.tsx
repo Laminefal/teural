@@ -59,8 +59,8 @@ function AdminUsersPage() {
   });
 
   const updateMut = useMutation({
-    mutationFn: (v: EditState) =>
-      updateFn({
+    mutationFn: async (v: EditState) => {
+      await updateFn({
         data: {
           userId: v.userId,
           ownerName: v.name || undefined,
@@ -68,7 +68,11 @@ function AdminUsersPage() {
           phone: v.phone || undefined,
           shopName: v.isOwner ? v.shopName || undefined : undefined,
         },
-      }),
+      });
+      if (v.password && v.password.length >= 6) {
+        await setPasswordFn({ data: { userId: v.userId, password: v.password } });
+      }
+    },
     onSuccess: () => {
       toast.success("Informations mises à jour");
       qc.invalidateQueries({ queryKey: ["admin-shops-members"] });

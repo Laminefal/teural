@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useRole } from "@/lib/role";
-import { listShopsWithMembers, adminUpdateOwner } from "@/lib/admin.functions";
+import { listShopsWithMembers, adminUpdateOwner, adminSetPassword } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_app/admin/users/")({
   component: AdminUsersPage,

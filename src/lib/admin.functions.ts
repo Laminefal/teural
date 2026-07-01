@@ -219,6 +219,60 @@ export const adminGeneratePaymentLink = createServerFn({ method: "POST" })
    USER DETAIL & MANAGEMENT
    ============================================================ */
 
+export const listShopsWithMembers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+
+    const { data: shops, error: sErr } = await supabaseAdmin
+      .from("shops")
+      .select("id, name, owner_id, created_at")
+      .order("created_at", { ascending: false });
+    if (sErr) throw sErr;
+
+    const { data: roles } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id, shop_id, role");
+
+    const userIds = Array.from(new Set((roles ?? []).map((r) => r.user_id)));
+    if (userIds.length === 0) {
+      return (shops ?? []).map((s) => ({ ...s, members: [] as Array<{ userId: string; role: string; name: string | null; email: string | null; phone: string | null }> }));
+    }
+
+    const { data: profilesRaw } = await supabaseAdmin
+      .from("profiles")
+      .select("id, owner_name")
+      .in("id", userIds);
+    const profiles = (profilesRaw ?? []) as Array<{ id: string; owner_name: string | null }>;
+
+    const authMap = new Map<string, { email: string | null; phone: string | null }>();
+    await Promise.all(
+      userIds.map(async (uid) => {
+        const { data } = await supabaseAdmin.auth.admin.getUserById(uid);
+        if (data?.user) authMap.set(uid, { email: data.user.email ?? null, phone: data.user.phone ?? null });
+      }),
+    );
+
+    return (shops ?? []).map((s) => {
+      const members = (roles ?? [])
+        .filter((r) => r.shop_id === s.id)
+        .map((r) => {
+          const p = profiles.find((x) => x.id === r.user_id);
+          const a = authMap.get(r.user_id);
+          return {
+            userId: r.user_id,
+            role: r.role as string,
+            name: p?.owner_name ?? null,
+            email: a?.email ?? null,
+            phone: a?.phone ?? null,
+          };
+        })
+        .sort((a, b) => (a.role === "owner" ? -1 : b.role === "owner" ? 1 : 0));
+      return { ...s, members };
+    });
+  });
+
+
 export const getOwnerDetail = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => z.object({ userId: z.string().uuid() }).parse(i))

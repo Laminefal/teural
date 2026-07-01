@@ -398,6 +398,23 @@ export const adminUpdateOwner = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const adminSetPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) =>
+    z.object({
+      userId: z.string().uuid(),
+      password: z.string().min(6).max(128),
+    }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      password: data.password,
+    });
+    if (error) throw error;
+    return { ok: true };
+  });
+
 export const adminResetPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => z.object({ userId: z.string().uuid() }).parse(i))

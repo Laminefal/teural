@@ -194,6 +194,7 @@ function AdminUsersPage() {
                               name: a.name ?? "",
                               email: a.email ?? "",
                               phone: a.phone ?? "",
+                              password: "",
                             })
                           }
                         />

@@ -233,6 +233,17 @@ function AdminUsersPage() {
                 <Label>Téléphone</Label>
                 <Input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} />
               </div>
+              <div className="space-y-1.5">
+                <Label>Nouveau mot de passe</Label>
+                <Input
+                  type="text"
+                  autoComplete="new-password"
+                  placeholder="Laisser vide pour ne pas changer (min. 6 caractères)"
+                  value={edit.password}
+                  onChange={(e) => setEdit({ ...edit, password: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Renseignez uniquement si vous voulez le remplacer.</p>
+              </div>
             </div>
           )}
           <DialogFooter>

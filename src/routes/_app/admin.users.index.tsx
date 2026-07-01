@@ -45,6 +45,7 @@ function AdminUsersPage() {
   const { isAdmin, loading } = useRole();
   const fetchShops = useServerFn(listShopsWithMembers);
   const updateFn = useServerFn(adminUpdateOwner);
+  const setPasswordFn = useServerFn(adminSetPassword);
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");

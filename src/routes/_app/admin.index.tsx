@@ -89,6 +89,15 @@ function AdminPage() {
     onSuccess: () => { toast.success("Boutique supprimée"); invalidate(); setDeleteRow(null); },
     onError: (e: Error) => toast.error(e.message),
   });
+  const mSuspend = useMutation({
+    mutationFn: ({ shopId, suspended }: { shopId: string; suspended: boolean }) =>
+      setSuspended({ data: { shopId, suspended } }),
+    onSuccess: (_, vars) => {
+      toast.success(vars.suspended ? "Boutique suspendue — lecture seule" : "Boutique réactivée");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const handleWhatsapp = (phone: string | null) => {
     if (!phone) return toast.error("Aucun numéro enregistré");

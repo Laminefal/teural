@@ -248,6 +248,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_suspended: boolean
           name: string
           owner_id: string
           updated_at: string
@@ -255,6 +256,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_suspended?: boolean
           name?: string
           owner_id: string
           updated_at?: string
@@ -262,6 +264,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_suspended?: boolean
           name?: string
           owner_id?: string
           updated_at?: string
@@ -359,6 +362,7 @@ export type Database = {
       }
       get_user_shop_id: { Args: { _user_id: string }; Returns: string }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_shop_active: { Args: { _shop_id: string }; Returns: boolean }
       is_shop_member: {
         Args: { _shop_id: string; _user_id: string }
         Returns: boolean

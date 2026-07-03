@@ -15,6 +15,7 @@ interface RoleCtx {
   isOwner: boolean;
   isAgent: boolean;
   isAdmin: boolean;
+  isSuspended: boolean;
   loading: boolean;
   subscriptionStatus: SubStatus;
   subscriptionExpiresAt: Date | null;
@@ -23,7 +24,7 @@ interface RoleCtx {
 }
 
 const Ctx = createContext<RoleCtx>({
-  role: null, shopId: null, shopName: null, isOwner: false, isAgent: false, isAdmin: false, loading: true,
+  role: null, shopId: null, shopName: null, isOwner: false, isAgent: false, isAdmin: false, isSuspended: false, loading: true,
   subscriptionStatus: "free", subscriptionExpiresAt: null, trialEndsAt: null, hasActiveAccess: false,
 });
 

@@ -72,6 +72,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     isOwner: data?.role === "owner",
     isAgent: data?.role === "agent",
     isAdmin,
+    isSuspended: data?.isSuspended ?? false,
     loading: isLoading,
     subscriptionStatus: data?.subscriptionStatus ?? "free",
     subscriptionExpiresAt: expires,

@@ -180,33 +180,38 @@ function AdminPage() {
                     </TableCell>
                     <TableCell className="text-xs">{r.email ?? "—"}</TableCell>
                     <TableCell>
-                      {active ? (
-                        <Badge className="bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/15">Premium</Badge>
-                      ) : (
-                        <Badge className="bg-muted text-muted-foreground border border-border hover:bg-muted">Gratuite</Badge>
-                      )}
+                      <div className="flex flex-col gap-1 items-start">
+                        {active ? (
+                          <Badge className="bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/15">Premium</Badge>
+                        ) : (
+                          <Badge className="bg-muted text-muted-foreground border border-border hover:bg-muted">Gratuite</Badge>
+                        )}
+                        {r.isSuspended && (
+                          <Badge className="bg-red-500/15 text-red-700 border border-red-500/30 hover:bg-red-500/15">Suspendue</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1 flex-wrap">
-                        {active ? (
+                        {r.isSuspended ? (
                           <Button
                             size="sm"
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                            onClick={() => mDeactivate.mutate(r.userId)}
-                            disabled={mDeactivate.isPending}
-                            title="Désactiver l'abonnement"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={() => mSuspend.mutate({ shopId: r.shopId, suspended: false })}
+                            disabled={mSuspend.isPending}
+                            title="Réactiver la boutique (autoriser les modifications)"
                           >
-                            <PowerOff className="h-3.5 w-3.5" /> Désactiver
+                            <Power className="h-3.5 w-3.5" /> Activer
                           </Button>
                         ) : (
                           <Button
                             size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                            onClick={() => mActivate.mutate(r.userId)}
-                            disabled={mActivate.isPending}
-                            title="Activer l'abonnement"
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            onClick={() => mSuspend.mutate({ shopId: r.shopId, suspended: true })}
+                            disabled={mSuspend.isPending}
+                            title="Suspendre la boutique (lecture seule pour propriétaire et agents)"
                           >
-                            <Power className="h-3.5 w-3.5" /> Activer
+                            <PowerOff className="h-3.5 w-3.5" /> Désactiver
                           </Button>
                         )}
                         <Button size="sm" variant="outline"

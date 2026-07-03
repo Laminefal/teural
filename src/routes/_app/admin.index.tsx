@@ -28,7 +28,7 @@ import { formatFCFA, formatDate, formatDateTime } from "@/lib/format";
 import {
   getAdminStats, listShopOwners,
   adminActivateSubscription, adminDeactivateSubscription, adminExtendSubscription,
-  adminDeleteOwner,
+  adminDeleteOwner, adminSetShopSuspended,
 } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_app/admin/")({

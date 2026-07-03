@@ -64,7 +64,7 @@ export const listShopOwners = createServerFn({ method: "GET" })
 
     const { data: roles, error: rErr } = await supabaseAdmin
       .from("user_roles")
-      .select("user_id, shop_id, shops(name)")
+      .select("user_id, shop_id, shops(name, is_suspended)")
       .eq("role", "owner");
     if (rErr) throw rErr;
 

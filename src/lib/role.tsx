@@ -15,6 +15,7 @@ interface RoleCtx {
   isOwner: boolean;
   isAgent: boolean;
   isAdmin: boolean;
+  isSuspended: boolean;
   loading: boolean;
   subscriptionStatus: SubStatus;
   subscriptionExpiresAt: Date | null;
@@ -23,7 +24,7 @@ interface RoleCtx {
 }
 
 const Ctx = createContext<RoleCtx>({
-  role: null, shopId: null, shopName: null, isOwner: false, isAgent: false, isAdmin: false, loading: true,
+  role: null, shopId: null, shopName: null, isOwner: false, isAgent: false, isAdmin: false, isSuspended: false, loading: true,
   subscriptionStatus: "free", subscriptionExpiresAt: null, trialEndsAt: null, hasActiveAccess: false,
 });
 
@@ -36,16 +37,18 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     queryKey: ["role-subscription", user?.id],
     queryFn: async () => {
       const [{ data: roleRow, error: rErr }, { data: profile, error: pErr }, adminRes] = await Promise.all([
-        supabase.from("user_roles").select("role, shop_id, shops(name)").eq("user_id", user!.id).maybeSingle(),
+        supabase.from("user_roles").select("role, shop_id, shops(name, is_suspended)").eq("user_id", user!.id).maybeSingle(),
         supabase.from("profiles").select("subscription_status, subscription_expires_at, trial_ends_at").eq("id", user!.id).maybeSingle(),
         checkAdmin().catch(() => ({ isAdmin: false })),
       ]);
       if (rErr) throw rErr;
       if (pErr) throw pErr;
+      const shopRel = (roleRow as { shops: { name: string; is_suspended: boolean } | null } | null)?.shops ?? null;
       return {
         role: (roleRow?.role as AppRole) ?? null,
         shopId: (roleRow?.shop_id as string) ?? null,
-        shopName: (roleRow as { shops: { name: string } | null } | null)?.shops?.name ?? null,
+        shopName: shopRel?.name ?? null,
+        isSuspended: shopRel?.is_suspended ?? false,
         subscriptionStatus: (profile?.subscription_status as SubStatus) ?? "free",
         subscriptionExpiresAt: profile?.subscription_expires_at ?? null,
         trialEndsAt: profile?.trial_ends_at ?? null,
@@ -69,6 +72,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     isOwner: data?.role === "owner",
     isAgent: data?.role === "agent",
     isAdmin,
+    isSuspended: data?.isSuspended ?? false,
     loading: isLoading,
     subscriptionStatus: data?.subscriptionStatus ?? "free",
     subscriptionExpiresAt: expires,

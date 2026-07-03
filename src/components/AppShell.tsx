@@ -122,6 +122,16 @@ function SidebarInner({ onNav }: { onNav?: () => void }) {
   );
 }
 
+function SuspendedBanner() {
+  const { isSuspended, isAdmin } = useRole();
+  if (!isSuspended || isAdmin) return null;
+  return (
+    <div className="bg-red-600 text-white text-sm px-4 py-2 text-center font-medium">
+      ⚠️ Boutique suspendue par l'administrateur — mode lecture seule. Aucune modification n'est possible pour le moment.
+    </div>
+  );
+}
+
 export function AppShell() {
   const [open, setOpen] = useState(false);
   return (
@@ -130,6 +140,7 @@ export function AppShell() {
         <SidebarInner />
       </aside>
       <div className="flex-1 flex flex-col min-w-0">
+        <SuspendedBanner />
         <header className="hidden lg:flex items-center justify-end gap-3 px-8 py-3 border-b border-border/60 bg-card/40">
           <SubscriptionBadge />
         </header>

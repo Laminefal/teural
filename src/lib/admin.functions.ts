@@ -64,7 +64,7 @@ export const listShopOwners = createServerFn({ method: "GET" })
 
     const { data: roles, error: rErr } = await supabaseAdmin
       .from("user_roles")
-      .select("user_id, shop_id, shops(name)")
+      .select("user_id, shop_id, shops(name, is_suspended)")
       .eq("role", "owner");
     if (rErr) throw rErr;
 
@@ -131,7 +131,8 @@ export const listShopOwners = createServerFn({ method: "GET" })
       return {
         userId: r.user_id,
         shopId: r.shop_id as string,
-        shopName: (r as { shops: { name: string } | null }).shops?.name ?? null,
+        shopName: (r as { shops: { name: string; is_suspended: boolean } | null }).shops?.name ?? null,
+        isSuspended: (r as { shops: { name: string; is_suspended: boolean } | null }).shops?.is_suspended ?? false,
         ownerName: p?.owner_name ?? null,
         email: a?.email ?? null,
         phone: a?.phone ?? null,
@@ -148,6 +149,19 @@ export const listShopOwners = createServerFn({ method: "GET" })
         stockTotal: pr.stock,
       };
     });
+  });
+
+export const adminSetShopSuspended = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ shopId: z.string().uuid(), suspended: z.boolean() }).parse(i))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { error } = await supabaseAdmin
+      .from("shops")
+      .update({ is_suspended: data.suspended })
+      .eq("id", data.shopId);
+    if (error) throw error;
+    return { ok: true };
   });
 
 export const adminActivateSubscription = createServerFn({ method: "POST" })

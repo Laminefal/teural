@@ -52,6 +52,7 @@ function AdminPage() {
   const deactivate = useServerFn(adminDeactivateSubscription);
   const extend = useServerFn(adminExtendSubscription);
   const del = useServerFn(adminDeleteOwner);
+  const setSuspended = useServerFn(adminSetShopSuspended);
 
   const [search, setSearch] = useState("");
   const [detailRow, setDetailRow] = useState<Owner | null>(null);

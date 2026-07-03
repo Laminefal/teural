@@ -3,8 +3,8 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  Search, Loader2, Users, BadgeCheck, Wallet, Clock, Power, PowerOff, CalendarPlus,
-  Link as LinkIcon, MessageCircle, RotateCcw, Copy, Filter,
+  Search, Loader2, Users, BadgeCheck, Wallet, Clock,
+  Power, PowerOff, CalendarPlus, MessageCircle, Trash2, Info,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -19,34 +19,27 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useRole } from "@/lib/role";
 import { formatFCFA, formatDate, formatDateTime } from "@/lib/format";
 import {
   getAdminStats, listShopOwners,
   adminActivateSubscription, adminDeactivateSubscription, adminExtendSubscription,
-  adminGeneratePaymentLink,
+  adminDeleteOwner,
 } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_app/admin/")({
   component: AdminPage,
 });
 
-type StatusFilter = "all" | "active" | "expired" | "free";
+type Owner = Awaited<ReturnType<typeof listShopOwners>>[number];
 
-function statusOf(row: { subscriptionStatus: string; subscriptionExpiresAt: string | null }) {
+function isActive(row: Owner) {
   const exp = row.subscriptionExpiresAt ? new Date(row.subscriptionExpiresAt) : null;
-  if (row.subscriptionStatus === "free") return "free" as const;
-  if (exp && exp > new Date()) return "active" as const;
-  return "expired" as const;
-}
-
-function StatusBadge({ s }: { s: "active" | "expired" | "free" }) {
-  if (s === "active")
-    return <Badge className="bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/15">● Actif</Badge>;
-  if (s === "expired")
-    return <Badge className="bg-destructive/15 text-destructive border border-destructive/30 hover:bg-destructive/15">● Expiré</Badge>;
-  return <Badge className="bg-muted text-muted-foreground border border-border hover:bg-muted">● Gratuit</Badge>;
+  return row.subscriptionStatus !== "free" && !!exp && exp > new Date();
 }
 
 function AdminPage() {
@@ -58,16 +51,13 @@ function AdminPage() {
   const activate = useServerFn(adminActivateSubscription);
   const deactivate = useServerFn(adminDeactivateSubscription);
   const extend = useServerFn(adminExtendSubscription);
-  const genLink = useServerFn(adminGeneratePaymentLink);
+  const del = useServerFn(adminDeleteOwner);
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<StatusFilter>("all");
-  const [advOpen, setAdvOpen] = useState(false);
-  const [fVille, setFVille] = useState("");
-  const [fInactiveDays, setFInactiveDays] = useState<number | "">("");
-  const [fMaxStock, setFMaxStock] = useState<number | "">("");
-  const [fMinRevenue, setFMinRevenue] = useState<number | "">("");
-  const [relanceOpen, setRelanceOpen] = useState(false);
+  const [detailRow, setDetailRow] = useState<Owner | null>(null);
+  const [extendRow, setExtendRow] = useState<Owner | null>(null);
+  const [extendDays, setExtendDays] = useState<number | "">(30);
+  const [deleteRow, setDeleteRow] = useState<Owner | null>(null);
 
   const statsQ = useQuery({ queryKey: ["admin-stats"], queryFn: () => fetchStats(), enabled: isAdmin });
   const ownersQ = useQuery({ queryKey: ["admin-owners"], queryFn: () => fetchOwners(), enabled: isAdmin });
@@ -79,32 +69,28 @@ function AdminPage() {
 
   const mActivate = useMutation({
     mutationFn: (userId: string) => activate({ data: { userId, plan: "monthly" } }),
-    onSuccess: () => { toast.success("Compte activé pour 30 jours"); invalidate(); },
+    onSuccess: () => { toast.success("Abonnement activé (30 jours)"); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
   const mDeactivate = useMutation({
     mutationFn: (userId: string) => deactivate({ data: { userId } }),
-    onSuccess: () => { toast.success("Compte désactivé"); invalidate(); },
+    onSuccess: () => { toast.success("Abonnement désactivé"); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
   const mExtend = useMutation({
-    mutationFn: (userId: string) => extend({ data: { userId, days: 30 } }),
-    onSuccess: () => { toast.success("+30 jours ajoutés"); invalidate(); },
+    mutationFn: ({ userId, days }: { userId: string; days: number }) =>
+      extend({ data: { userId, days } }),
+    onSuccess: () => { toast.success("Jours ajoutés"); invalidate(); setExtendRow(null); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const mDelete = useMutation({
+    mutationFn: (userId: string) => del({ data: { userId, confirm: true } }),
+    onSuccess: () => { toast.success("Boutique supprimée"); invalidate(); setDeleteRow(null); },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const handleLink = async (userId: string) => {
-    try {
-      const { url } = await genLink({ data: { userId } });
-      await navigator.clipboard.writeText(url);
-      toast.success("Lien copié", { description: url });
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
-  };
-
   const handleWhatsapp = (phone: string | null) => {
-    if (!phone) return toast.error("Aucun numéro de téléphone enregistré");
+    if (!phone) return toast.error("Aucun numéro enregistré");
     const clean = phone.replace(/[^0-9]/g, "");
     window.open(`https://wa.me/${clean}`, "_blank");
   };
@@ -112,46 +98,14 @@ function AdminPage() {
   const filtered = useMemo(() => {
     const rows = ownersQ.data ?? [];
     const q = search.trim().toLowerCase();
-    const villeQ = fVille.trim().toLowerCase();
-    const now = Date.now();
-    return rows.filter((r) => {
-      const s = statusOf(r);
-      if (filter !== "all" && s !== filter) return false;
-      if (q) {
-        const match =
-          (r.ownerName ?? "").toLowerCase().includes(q) ||
-          (r.email ?? "").toLowerCase().includes(q) ||
-          (r.phone ?? "").toLowerCase().includes(q) ||
-          (r.shopName ?? "").toLowerCase().includes(q);
-        if (!match) return false;
-      }
-      if (villeQ) {
-        const v = `${r.ville ?? ""} ${r.quartier ?? ""}`.toLowerCase();
-        if (!v.includes(villeQ)) return false;
-      }
-      if (fInactiveDays !== "" && Number(fInactiveDays) > 0) {
-        const last = r.lastSignInAt ? new Date(r.lastSignInAt).getTime() : 0;
-        const daysSince = last ? (now - last) / (24 * 3600 * 1000) : Infinity;
-        if (daysSince < Number(fInactiveDays)) return false;
-      }
-      if (fMaxStock !== "" && Number(fMaxStock) >= 0) {
-        if ((r.productsCount ?? 0) > Number(fMaxStock)) return false;
-      }
-      if (fMinRevenue !== "" && Number(fMinRevenue) > 0) {
-        if ((r.revenue ?? 0) < Number(fMinRevenue)) return false;
-      }
-      return true;
-    });
-  }, [ownersQ.data, search, filter, fVille, fInactiveDays, fMaxStock, fMinRevenue]);
-
-  const expiredList = useMemo(
-    () => (ownersQ.data ?? []).filter((r) => statusOf(r) === "expired" && r.phone),
-    [ownersQ.data],
-  );
-  const relanceMessage = useMemo(() => {
-    const numbers = expiredList.map((r) => `- ${r.ownerName ?? r.email ?? "Boutiquier"} : ${r.phone}`).join("\n");
-    return `Bonjour 👋\n\nVotre abonnement Teranga est expiré. Renouvelez dès maintenant pour 15 000 FCFA et continuez à gérer votre boutique sans interruption.\n\nLien Wave : https://pay.wave.com/m/M_sn_hCGRH3TAuixY/c/sn/?amount=15000\n\nBoutiquiers concernés :\n${numbers}`;
-  }, [expiredList]);
+    if (!q) return rows;
+    return rows.filter((r) =>
+      (r.shopName ?? "").toLowerCase().includes(q) ||
+      (r.email ?? "").toLowerCase().includes(q) ||
+      (r.ownerName ?? "").toLowerCase().includes(q) ||
+      (r.phone ?? "").toLowerCase().includes(q),
+    );
+  }, [ownersQ.data, search]);
 
   if (loading) {
     return (
@@ -167,152 +121,102 @@ function AdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Administration"
-        subtitle="Gestion totale de la plateforme Teranga"
+        title="Gestion des boutiques"
+        subtitle="Toutes les boutiques inscrites sur Teranga"
       />
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label="Boutiquiers inscrits" value={s?.totalOwners ?? "—"} icon={<Users className="h-4 w-4" />} />
-        <StatCard label="Abonnés actifs" value={s?.activeSubs ?? "—"} icon={<BadgeCheck className="h-4 w-4 text-emerald-600" />} />
+        <StatCard label="Boutiques" value={s?.totalOwners ?? "—"} icon={<Users className="h-4 w-4" />} />
+        <StatCard label="Abonnements actifs" value={s?.activeSubs ?? "—"} icon={<BadgeCheck className="h-4 w-4 text-emerald-600" />} />
         <StatCard label="CA du mois" value={s ? formatFCFA(s.monthlyRevenue) : "—"} icon={<Wallet className="h-4 w-4 text-accent" />} />
         <StatCard label="Expirent < 7 jours" value={s?.expiringSoon ?? "—"} icon={<Clock className="h-4 w-4 text-amber-600" />} />
       </div>
 
-      {/* Filters */}
       <Card className="p-4">
-        <div className="flex flex-col md:flex-row gap-3 md:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher (nom, email, téléphone)"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {([
-              { v: "all", l: "Tous" },
-              { v: "active", l: "Actifs" },
-              { v: "expired", l: "Expirés" },
-              { v: "free", l: "Gratuits" },
-            ] as const).map((o) => (
-              <Button
-                key={o.v}
-                size="sm"
-                variant={filter === o.v ? "default" : "outline"}
-                onClick={() => setFilter(o.v)}
-              >
-                {o.l}
-              </Button>
-            ))}
-            <Button size="sm" variant="ghost" onClick={() => {
-              setSearch(""); setFilter("all"); setFVille("");
-              setFInactiveDays(""); setFMaxStock(""); setFMinRevenue("");
-            }}>
-              Réinitialiser
-            </Button>
-            <Button size="sm" variant={advOpen ? "default" : "outline"} onClick={() => setAdvOpen((o) => !o)}>
-              <Filter className="h-3.5 w-3.5" /> Filtres avancés
-            </Button>
-          </div>
-          <Button onClick={() => setRelanceOpen(true)} variant="secondary" className="md:ml-auto">
-            <RotateCcw className="h-4 w-4" /> Relancer les expirés ({expiredList.length})
-          </Button>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher (boutique, email, propriétaire, téléphone)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
-
-        {advOpen && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4 pt-4 border-t">
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Quartier / Ville</label>
-              <Input value={fVille} onChange={(e) => setFVille(e.target.value)} placeholder="Ex: Dakar" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Inactifs depuis (jours)</label>
-              <Input type="number" min={0} value={fInactiveDays}
-                onChange={(e) => setFInactiveDays(e.target.value === "" ? "" : Number(e.target.value))}
-                placeholder="7, 30, 90..." />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Stock faible (≤ N produits)</label>
-              <Input type="number" min={0} value={fMaxStock}
-                onChange={(e) => setFMaxStock(e.target.value === "" ? "" : Number(e.target.value))}
-                placeholder="10" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">CA minimum (FCFA)</label>
-              <Input type="number" min={0} value={fMinRevenue}
-                onChange={(e) => setFMinRevenue(e.target.value === "" ? "" : Number(e.target.value))}
-                placeholder="500000" />
-            </div>
-          </div>
-        )}
       </Card>
 
-      {/* Table */}
       <Card className="overflow-hidden">
         {ownersQ.isLoading ? (
           <div className="p-10 grid place-items-center"><Loader2 className="h-5 w-5 animate-spin text-accent" /></div>
         ) : filtered.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted-foreground">Aucun boutiquier trouvé</div>
+          <div className="p-10 text-center text-sm text-muted-foreground">Aucune boutique trouvée</div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Téléphone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Fin d'abonnement</TableHead>
-                <TableHead>Dernière connexion</TableHead>
+                <TableHead>Boutique</TableHead>
+                <TableHead>Email propriétaire</TableHead>
+                <TableHead>Abonnement</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((r) => {
-                const st = statusOf(r);
+                const active = isActive(r);
                 return (
                   <TableRow key={r.userId}>
                     <TableCell>
-                      <div className="font-medium">{r.ownerName ?? "—"}</div>
-                      <div className="text-xs text-muted-foreground">{r.shopName ?? ""}</div>
+                      <div className="font-medium">{r.shopName ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">{r.ownerName ?? ""}</div>
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{r.phone ?? "—"}</TableCell>
                     <TableCell className="text-xs">{r.email ?? "—"}</TableCell>
-                    <TableCell><StatusBadge s={st} /></TableCell>
-                    <TableCell className="text-xs">
-                      {r.subscriptionExpiresAt ? formatDate(r.subscriptionExpiresAt) : "—"}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {r.lastSignInAt ? formatDateTime(r.lastSignInAt) : "Jamais"}
+                    <TableCell>
+                      {active ? (
+                        <Badge className="bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/15">Premium</Badge>
+                      ) : (
+                        <Badge className="bg-muted text-muted-foreground border border-border hover:bg-muted">Gratuite</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1 flex-wrap">
+                        {active ? (
+                          <Button
+                            size="sm"
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            onClick={() => mDeactivate.mutate(r.userId)}
+                            disabled={mDeactivate.isPending}
+                            title="Désactiver l'abonnement"
+                          >
+                            <PowerOff className="h-3.5 w-3.5" /> Désactiver
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={() => mActivate.mutate(r.userId)}
+                            disabled={mActivate.isPending}
+                            title="Activer l'abonnement"
+                          >
+                            <Power className="h-3.5 w-3.5" /> Activer
+                          </Button>
+                        )}
                         <Button size="sm" variant="outline"
-                          onClick={() => mActivate.mutate(r.userId)}
-                          disabled={mActivate.isPending}>
-                          <Power className="h-3.5 w-3.5" /> Activer
+                          onClick={() => { setExtendRow(r); setExtendDays(30); }}>
+                          <CalendarPlus className="h-3.5 w-3.5" /> + Jours
                         </Button>
                         <Button size="sm" variant="outline"
-                          onClick={() => mDeactivate.mutate(r.userId)}
-                          disabled={mDeactivate.isPending}>
-                          <PowerOff className="h-3.5 w-3.5" /> Désactiver
-                        </Button>
-                        <Button size="sm" variant="outline"
-                          onClick={() => mExtend.mutate(r.userId)}
-                          disabled={mExtend.isPending}>
-                          <CalendarPlus className="h-3.5 w-3.5" /> +30 j
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleLink(r.userId)}>
-                          <LinkIcon className="h-3.5 w-3.5" /> Lien
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleWhatsapp(r.phone)}>
+                          onClick={() => handleWhatsapp(r.phone)}>
                           <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                        </Button>
+                        <Button size="sm" variant="outline"
+                          onClick={() => setDetailRow(r)}>
+                          <Info className="h-3.5 w-3.5" /> Détail
+                        </Button>
+                        <Button size="sm" variant="destructive"
+                          onClick={() => setDeleteRow(r)}>
+                          <Trash2 className="h-3.5 w-3.5" /> Supprimer
                         </Button>
                       </div>
                     </TableCell>
-
                   </TableRow>
                 );
               })}
@@ -321,27 +225,111 @@ function AdminPage() {
         )}
       </Card>
 
-      {/* Relance dialog */}
-      <Dialog open={relanceOpen} onOpenChange={setRelanceOpen}>
-        <DialogContent className="max-w-2xl">
+      {/* Detail dialog */}
+      <Dialog open={!!detailRow} onOpenChange={(o) => !o && setDetailRow(null)}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Relancer les abonnements expirés</DialogTitle>
-            <DialogDescription>
-              {expiredList.length} boutiquier(s) à relancer. Copiez le message ci-dessous et envoyez-le par WhatsApp.
-            </DialogDescription>
+            <DialogTitle>Détails de la boutique</DialogTitle>
+            <DialogDescription>Informations complètes</DialogDescription>
           </DialogHeader>
-          <Textarea value={relanceMessage} readOnly className="min-h-[260px] font-mono text-xs" />
+          {detailRow && (
+            <div className="space-y-2 text-sm">
+              <DetailLine label="Nom de la boutique" value={detailRow.shopName ?? "—"} />
+              <DetailLine label="Propriétaire" value={detailRow.ownerName ?? "—"} />
+              <DetailLine label="Téléphone" value={detailRow.phone ?? "—"} />
+              <DetailLine label="Email" value={detailRow.email ?? "—"} />
+              <DetailLine
+                label="Coordonnées"
+                value={[detailRow.quartier, detailRow.ville].filter(Boolean).join(", ") || "—"}
+              />
+              <DetailLine
+                label="Date de création"
+                value={detailRow.createdAt ? formatDate(detailRow.createdAt) : "—"}
+              />
+              <DetailLine
+                label="Abonnement"
+                value={isActive(detailRow) ? "Premium" : "Gratuite"}
+              />
+              <DetailLine
+                label="Début d'abonnement"
+                value={
+                  isActive(detailRow) && detailRow.subscriptionExpiresAt
+                    ? formatDate(new Date(new Date(detailRow.subscriptionExpiresAt).getTime() - 30 * 24 * 3600 * 1000))
+                    : "—"
+                }
+              />
+              <DetailLine
+                label="Fin d'abonnement"
+                value={detailRow.subscriptionExpiresAt ? formatDate(detailRow.subscriptionExpiresAt) : "—"}
+              />
+              <DetailLine
+                label="Dernière connexion"
+                value={detailRow.lastSignInAt ? formatDateTime(detailRow.lastSignInAt) : "Jamais"}
+              />
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRelanceOpen(false)}>Fermer</Button>
-            <Button onClick={async () => {
-              await navigator.clipboard.writeText(relanceMessage);
-              toast.success("Message copié dans le presse-papier");
-            }}>
-              <Copy className="h-4 w-4" /> Copier le message
+            <Button variant="outline" onClick={() => setDetailRow(null)}>Fermer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Extend days dialog */}
+      <Dialog open={!!extendRow} onOpenChange={(o) => !o && setExtendRow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ajouter des jours d'abonnement</DialogTitle>
+            <DialogDescription>{extendRow?.shopName ?? ""}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">Nombre de jours à ajouter</label>
+            <Input
+              type="number"
+              min={1}
+              value={extendDays}
+              onChange={(e) => setExtendDays(e.target.value === "" ? "" : Number(e.target.value))}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExtendRow(null)}>Annuler</Button>
+            <Button
+              disabled={mExtend.isPending || !extendDays || Number(extendDays) < 1}
+              onClick={() => extendRow && mExtend.mutate({ userId: extendRow.userId, days: Number(extendDays) })}
+            >
+              {mExtend.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
+              Ajouter
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirm */}
+      <AlertDialog open={!!deleteRow} onOpenChange={(o) => !o && setDeleteRow(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer définitivement cette boutique ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La boutique <strong>{deleteRow?.shopName}</strong> et toutes ses données
+              (ventes, produits, dépenses, dettes, paiements, agents) seront supprimées
+              de manière irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={mDelete.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteRow) mDelete.mutate(deleteRow.userId);
+              }}
+            >
+              {mDelete.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -355,5 +343,14 @@ function StatCard({ label, value, icon }: { label: string; value: React.ReactNod
       </div>
       <div className="mt-2 text-2xl font-display font-semibold">{value}</div>
     </Card>
+  );
+}
+
+function DetailLine({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-border/50 py-1.5">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right">{value}</span>
+    </div>
   );
 }

@@ -16,7 +16,7 @@ const baseNav = [
   { to: "/debts", label: "Dettes", icon: HandCoins },
   { to: "/agents", label: "Agents", icon: Users, ownerOnly: true },
   { to: "/subscription", label: "Abonnement", icon: Crown, ownerOnly: true },
-  { to: "/admin", label: "Administration", icon: ShieldCheck, adminOnly: true },
+  { to: "/admin", label: "Gestion des boutiques", icon: ShieldCheck, adminOnly: true },
   { to: "/admin/users", label: "Gestion des users", icon: UserCog, adminOnly: true },
 
 ] as const;

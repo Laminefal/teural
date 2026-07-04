@@ -182,9 +182,25 @@ function AdminPage() {
                     <TableCell>
                       <div className="flex flex-col gap-1 items-start">
                         {active ? (
-                          <Badge className="bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/15">Premium</Badge>
+                          <button
+                            type="button"
+                            onClick={() => mDeactivate.mutate(r.userId)}
+                            disabled={mDeactivate.isPending || mActivate.isPending}
+                            title="Cliquer pour repasser en Gratuite"
+                            className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/25 px-2.5 py-0.5 text-xs font-semibold transition-colors disabled:opacity-60"
+                          >
+                            Premium
+                          </button>
                         ) : (
-                          <Badge className="bg-muted text-muted-foreground border border-border hover:bg-muted">Gratuite</Badge>
+                          <button
+                            type="button"
+                            onClick={() => mActivate.mutate(r.userId)}
+                            disabled={mActivate.isPending || mDeactivate.isPending}
+                            title="Cliquer pour activer un abonnement (30 jours)"
+                            className="inline-flex items-center rounded-full bg-muted text-muted-foreground border border-border hover:bg-accent hover:text-accent-foreground px-2.5 py-0.5 text-xs font-semibold transition-colors disabled:opacity-60"
+                          >
+                            Gratuite
+                          </button>
                         )}
                         {r.isSuspended && (
                           <Badge className="bg-red-500/15 text-red-700 border border-red-500/30 hover:bg-red-500/15">Suspendue</Badge>

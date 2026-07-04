@@ -71,14 +71,15 @@ export const listShopOwners = createServerFn({ method: "GET" })
     const userIds = (roles ?? []).map((r) => r.user_id);
     if (userIds.length === 0) return [];
 
-    const { data: profilesRaw } = await supabaseAdmin
+    const { data: profilesRaw, error: pErr } = await supabaseAdmin
       .from("profiles")
-      .select("id, owner_name, subscription_status, subscription_expires_at, trial_ends_at, created_at, shop_quartier, shop_ville" as "*")
+      .select("id, owner_name, subscription_status, subscription_expires_at, trial_ends_at, created_at")
       .in("id", userIds);
+    if (pErr) throw pErr;
     const profiles = profilesRaw as unknown as Array<{
       id: string; owner_name: string | null; subscription_status: string | null;
       subscription_expires_at: string | null; trial_ends_at: string | null;
-      created_at: string | null; shop_quartier: string | null; shop_ville: string | null;
+      created_at: string | null;
     }> | null;
 
     // Sales aggregates per user
@@ -136,8 +137,8 @@ export const listShopOwners = createServerFn({ method: "GET" })
         ownerName: p?.owner_name ?? null,
         email: a?.email ?? null,
         phone: a?.phone ?? null,
-        quartier: p?.shop_quartier ?? null,
-        ville: p?.shop_ville ?? null,
+        quartier: null,
+        ville: null,
         subscriptionStatus: (p?.subscription_status as string) ?? "free",
         subscriptionExpiresAt: p?.subscription_expires_at ?? null,
         trialEndsAt: p?.trial_ends_at ?? null,

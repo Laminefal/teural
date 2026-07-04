@@ -43,7 +43,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       ]);
       if (rErr) throw rErr;
       if (pErr) throw pErr;
-      const shopRel = (roleRow as { shops: { name: string; is_suspended: boolean } | null } | null)?.shops ?? null;
+      const rawShops = (roleRow as { shops: unknown } | null)?.shops;
+      const shopRel = (Array.isArray(rawShops) ? rawShops[0] : rawShops) as { name: string; is_suspended: boolean } | null | undefined;
       return {
         role: (roleRow?.role as AppRole) ?? null,
         shopId: (roleRow?.shop_id as string) ?? null,

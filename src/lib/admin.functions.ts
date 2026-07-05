@@ -34,19 +34,30 @@ export const getAdminStats = createServerFn({ method: "GET" })
     const now = new Date();
     const in7 = new Date(now.getTime() + 7 * 24 * 3600 * 1000).toISOString();
 
+    const { data: adminRows } = await supabaseAdmin.from("admin_users").select("user_id");
+    const adminIds = (adminRows ?? []).map((a) => a.user_id);
+
+    const totalOwnersQ = supabaseAdmin.from("shops").select("*", { count: "exact", head: true });
+    const activeSubsQ = supabaseAdmin
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .neq("subscription_status", "free")
+      .gt("subscription_expires_at", now.toISOString());
+    const expiringQ = supabaseAdmin
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .neq("subscription_status", "free")
+      .gt("subscription_expires_at", now.toISOString())
+      .lte("subscription_expires_at", in7);
+
+    if (adminIds.length) {
+      totalOwnersQ.not("owner_id", "in", `(${adminIds.join(",")})`);
+      activeSubsQ.not("id", "in", `(${adminIds.join(",")})`);
+      expiringQ.not("id", "in", `(${adminIds.join(",")})`);
+    }
+
     const [{ count: totalOwners }, { count: activeSubs }, { count: expiring }] = await Promise.all([
-      supabaseAdmin.from("shops").select("*", { count: "exact", head: true }),
-      supabaseAdmin
-        .from("profiles")
-        .select("*", { count: "exact", head: true })
-        .neq("subscription_status", "free")
-        .gt("subscription_expires_at", now.toISOString()),
-      supabaseAdmin
-        .from("profiles")
-        .select("*", { count: "exact", head: true })
-        .neq("subscription_status", "free")
-        .gt("subscription_expires_at", now.toISOString())
-        .lte("subscription_expires_at", in7),
+      totalOwnersQ, activeSubsQ, expiringQ,
     ]);
 
     return {

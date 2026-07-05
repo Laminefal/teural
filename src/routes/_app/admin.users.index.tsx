@@ -50,6 +50,8 @@ function AdminUsersPage() {
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");
+  const [agentFilter, setAgentFilter] = useState<"all" | "with" | "without">("all");
+  const [sortBy, setSortBy] = useState<"name" | "members" | "recent">("name");
   const [openShop, setOpenShop] = useState<string | null>(null);
   const [edit, setEdit] = useState<EditState | null>(null);
 

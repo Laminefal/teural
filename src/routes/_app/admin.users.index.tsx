@@ -15,6 +15,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRole } from "@/lib/role";
 import { listShopsWithMembers, adminUpdateOwner, adminSetPassword } from "@/lib/admin.functions";
 

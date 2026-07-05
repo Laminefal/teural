@@ -85,19 +85,32 @@ function AdminUsersPage() {
   });
 
   const filtered = useMemo(() => {
-    const rows = shopsQ.data ?? [];
+    let rows = (shopsQ.data ?? []).slice();
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((s) => {
-      if ((s.name ?? "").toLowerCase().includes(q)) return true;
-      return (s.members as Member[]).some(
-        (m) =>
-          (m.name ?? "").toLowerCase().includes(q) ||
-          (m.email ?? "").toLowerCase().includes(q) ||
-          (m.phone ?? "").toLowerCase().includes(q),
-      );
+    if (q) {
+      rows = rows.filter((s) => {
+        if ((s.name ?? "").toLowerCase().includes(q)) return true;
+        return (s.members as Member[]).some(
+          (m) =>
+            (m.name ?? "").toLowerCase().includes(q) ||
+            (m.email ?? "").toLowerCase().includes(q) ||
+            (m.phone ?? "").toLowerCase().includes(q),
+        );
+      });
+    }
+    if (agentFilter !== "all") {
+      rows = rows.filter((s) => {
+        const agents = (s.members as Member[]).filter((m) => m.role !== "owner").length;
+        return agentFilter === "with" ? agents > 0 : agents === 0;
+      });
+    }
+    rows.sort((a, b) => {
+      if (sortBy === "members") return (b.members as Member[]).length - (a.members as Member[]).length;
+      if (sortBy === "recent") return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
+      return (a.name ?? "").localeCompare(b.name ?? "");
     });
-  }, [shopsQ.data, search]);
+    return rows;
+  }, [shopsQ.data, search, agentFilter, sortBy]);
 
   if (loading) {
     return (

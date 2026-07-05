@@ -22,8 +22,8 @@ const baseNav = [
 ] as const;
 
 function SubscriptionBadge() {
-  const { isOwner, subscriptionStatus, subscriptionExpiresAt, trialEndsAt } = useRole();
-  if (!isOwner) return null;
+  const { isOwner, isAdmin, subscriptionStatus, subscriptionExpiresAt, trialEndsAt } = useRole();
+  if (isAdmin || !isOwner) return null;
   const now = new Date();
   const subActive = !!subscriptionExpiresAt && subscriptionExpiresAt > now && subscriptionStatus !== "free";
   const trialActive = !subActive && !!trialEndsAt && trialEndsAt > now;

@@ -34,19 +34,30 @@ export const getAdminStats = createServerFn({ method: "GET" })
     const now = new Date();
     const in7 = new Date(now.getTime() + 7 * 24 * 3600 * 1000).toISOString();
 
+    const { data: adminRows } = await supabaseAdmin.from("admin_users").select("user_id");
+    const adminIds = (adminRows ?? []).map((a) => a.user_id);
+
+    const totalOwnersQ = supabaseAdmin.from("shops").select("*", { count: "exact", head: true });
+    const activeSubsQ = supabaseAdmin
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .neq("subscription_status", "free")
+      .gt("subscription_expires_at", now.toISOString());
+    const expiringQ = supabaseAdmin
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .neq("subscription_status", "free")
+      .gt("subscription_expires_at", now.toISOString())
+      .lte("subscription_expires_at", in7);
+
+    if (adminIds.length) {
+      totalOwnersQ.not("owner_id", "in", `(${adminIds.join(",")})`);
+      activeSubsQ.not("id", "in", `(${adminIds.join(",")})`);
+      expiringQ.not("id", "in", `(${adminIds.join(",")})`);
+    }
+
     const [{ count: totalOwners }, { count: activeSubs }, { count: expiring }] = await Promise.all([
-      supabaseAdmin.from("shops").select("*", { count: "exact", head: true }),
-      supabaseAdmin
-        .from("profiles")
-        .select("*", { count: "exact", head: true })
-        .neq("subscription_status", "free")
-        .gt("subscription_expires_at", now.toISOString()),
-      supabaseAdmin
-        .from("profiles")
-        .select("*", { count: "exact", head: true })
-        .neq("subscription_status", "free")
-        .gt("subscription_expires_at", now.toISOString())
-        .lte("subscription_expires_at", in7),
+      totalOwnersQ, activeSubsQ, expiringQ,
     ]);
 
     return {
@@ -62,13 +73,18 @@ export const listShopOwners = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
 
-    const { data: roles, error: rErr } = await supabaseAdmin
+    const { data: rolesRaw, error: rErr } = await supabaseAdmin
       .from("user_roles")
       .select("user_id, shop_id, shops(name, is_suspended)")
       .eq("role", "owner");
     if (rErr) throw rErr;
 
-    const userIds = (roles ?? []).map((r) => r.user_id);
+    // Exclude admin accounts — they don't have a subscription
+    const { data: adminRows } = await supabaseAdmin.from("admin_users").select("user_id");
+    const adminIds = new Set((adminRows ?? []).map((a) => a.user_id));
+    const roles = (rolesRaw ?? []).filter((r) => !adminIds.has(r.user_id));
+
+    const userIds = roles.map((r) => r.user_id);
     if (userIds.length === 0) return [];
 
     const { data: profilesRaw, error: pErr } = await supabaseAdmin
@@ -124,7 +140,7 @@ export const listShopOwners = createServerFn({ method: "GET" })
       }),
     );
 
-    return (roles ?? []).map((r) => {
+    return roles.map((r) => {
       const p = profiles?.find((x) => x.id === r.user_id);
       const a = authMap.get(r.user_id);
       const s = salesByUser.get(r.user_id) ?? { count: 0, revenue: 0 };

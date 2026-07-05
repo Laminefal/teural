@@ -23,6 +23,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRole } from "@/lib/role";
 import { formatFCFA, formatDate, formatDateTime } from "@/lib/format";
 import {
@@ -55,6 +56,9 @@ function AdminPage() {
   const setSuspended = useServerFn(adminSetShopSuspended);
 
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "premium" | "free" | "expiring">("all");
+  const [suspendedFilter, setSuspendedFilter] = useState<"all" | "active" | "suspended">("all");
+  const [sortBy, setSortBy] = useState<"recent" | "name" | "expiry" | "revenue">("recent");
   const [detailRow, setDetailRow] = useState<Owner | null>(null);
   const [extendRow, setExtendRow] = useState<Owner | null>(null);
   const [extendDays, setExtendDays] = useState<number | "">(30);
@@ -106,16 +110,45 @@ function AdminPage() {
   };
 
   const filtered = useMemo(() => {
-    const rows = ownersQ.data ?? [];
+    let rows = (ownersQ.data ?? []).slice();
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      (r.shopName ?? "").toLowerCase().includes(q) ||
-      (r.email ?? "").toLowerCase().includes(q) ||
-      (r.ownerName ?? "").toLowerCase().includes(q) ||
-      (r.phone ?? "").toLowerCase().includes(q),
-    );
-  }, [ownersQ.data, search]);
+    if (q) {
+      rows = rows.filter((r) =>
+        (r.shopName ?? "").toLowerCase().includes(q) ||
+        (r.email ?? "").toLowerCase().includes(q) ||
+        (r.ownerName ?? "").toLowerCase().includes(q) ||
+        (r.phone ?? "").toLowerCase().includes(q),
+      );
+    }
+    if (statusFilter !== "all") {
+      const now = Date.now();
+      const in7 = now + 7 * 24 * 3600 * 1000;
+      rows = rows.filter((r) => {
+        const active = isActive(r);
+        if (statusFilter === "premium") return active;
+        if (statusFilter === "free") return !active;
+        if (statusFilter === "expiring") {
+          const exp = r.subscriptionExpiresAt ? new Date(r.subscriptionExpiresAt).getTime() : 0;
+          return active && exp > now && exp <= in7;
+        }
+        return true;
+      });
+    }
+    if (suspendedFilter !== "all") {
+      rows = rows.filter((r) => (suspendedFilter === "suspended" ? r.isSuspended : !r.isSuspended));
+    }
+    rows.sort((a, b) => {
+      if (sortBy === "name") return (a.shopName ?? "").localeCompare(b.shopName ?? "");
+      if (sortBy === "revenue") return (b.revenue ?? 0) - (a.revenue ?? 0);
+      if (sortBy === "expiry") {
+        const ax = a.subscriptionExpiresAt ? new Date(a.subscriptionExpiresAt).getTime() : Infinity;
+        const bx = b.subscriptionExpiresAt ? new Date(b.subscriptionExpiresAt).getTime() : Infinity;
+        return ax - bx;
+      }
+      return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+    });
+    return rows;
+  }, [ownersQ.data, search, statusFilter, suspendedFilter, sortBy]);
 
   if (loading) {
     return (
@@ -142,7 +175,7 @@ function AdminPage() {
         <StatCard label="Expirent < 7 jours" value={s?.expiringSoon ?? "—"} icon={<Clock className="h-4 w-4 text-amber-600" />} />
       </div>
 
-      <Card className="p-4">
+      <Card className="p-4 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -151,6 +184,37 @@ function AdminPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+            <SelectTrigger className="sm:w-48"><SelectValue placeholder="Abonnement" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les abonnements</SelectItem>
+              <SelectItem value="premium">Premium</SelectItem>
+              <SelectItem value="free">Gratuite</SelectItem>
+              <SelectItem value="expiring">Expire {"<"} 7 jours</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={suspendedFilter} onValueChange={(v) => setSuspendedFilter(v as typeof suspendedFilter)}>
+            <SelectTrigger className="sm:w-48"><SelectValue placeholder="État" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Actives et suspendues</SelectItem>
+              <SelectItem value="active">Actives uniquement</SelectItem>
+              <SelectItem value="suspended">Suspendues uniquement</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="sm:w-48"><SelectValue placeholder="Trier" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Trier : plus récentes</SelectItem>
+              <SelectItem value="name">Trier : nom (A→Z)</SelectItem>
+              <SelectItem value="expiry">Trier : expiration proche</SelectItem>
+              <SelectItem value="revenue">Trier : chiffre d'affaires</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="text-xs text-muted-foreground sm:ml-auto sm:self-center">
+            {filtered.length} boutique{filtered.length > 1 ? "s" : ""}
+          </div>
         </div>
       </Card>
 

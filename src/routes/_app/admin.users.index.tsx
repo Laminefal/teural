@@ -15,6 +15,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRole } from "@/lib/role";
 import { listShopsWithMembers, adminUpdateOwner, adminSetPassword } from "@/lib/admin.functions";
 
@@ -49,6 +50,8 @@ function AdminUsersPage() {
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");
+  const [agentFilter, setAgentFilter] = useState<"all" | "with" | "without">("all");
+  const [sortBy, setSortBy] = useState<"name" | "members" | "recent">("name");
   const [openShop, setOpenShop] = useState<string | null>(null);
   const [edit, setEdit] = useState<EditState | null>(null);
 
@@ -82,19 +85,32 @@ function AdminUsersPage() {
   });
 
   const filtered = useMemo(() => {
-    const rows = shopsQ.data ?? [];
+    let rows = (shopsQ.data ?? []).slice();
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((s) => {
-      if ((s.name ?? "").toLowerCase().includes(q)) return true;
-      return (s.members as Member[]).some(
-        (m) =>
-          (m.name ?? "").toLowerCase().includes(q) ||
-          (m.email ?? "").toLowerCase().includes(q) ||
-          (m.phone ?? "").toLowerCase().includes(q),
-      );
+    if (q) {
+      rows = rows.filter((s) => {
+        if ((s.name ?? "").toLowerCase().includes(q)) return true;
+        return (s.members as Member[]).some(
+          (m) =>
+            (m.name ?? "").toLowerCase().includes(q) ||
+            (m.email ?? "").toLowerCase().includes(q) ||
+            (m.phone ?? "").toLowerCase().includes(q),
+        );
+      });
+    }
+    if (agentFilter !== "all") {
+      rows = rows.filter((s) => {
+        const agents = (s.members as Member[]).filter((m) => m.role !== "owner").length;
+        return agentFilter === "with" ? agents > 0 : agents === 0;
+      });
+    }
+    rows.sort((a, b) => {
+      if (sortBy === "members") return (b.members as Member[]).length - (a.members as Member[]).length;
+      if (sortBy === "recent") return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
+      return (a.name ?? "").localeCompare(b.name ?? "");
     });
-  }, [shopsQ.data, search]);
+    return rows;
+  }, [shopsQ.data, search, agentFilter, sortBy]);
 
   if (loading) {
     return (
@@ -112,7 +128,7 @@ function AdminUsersPage() {
         subtitle="Boutiques, propriétaires et agents"
       />
 
-      <Card className="p-4">
+      <Card className="p-4 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -121,6 +137,27 @@ function AdminUsersPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Select value={agentFilter} onValueChange={(v) => setAgentFilter(v as typeof agentFilter)}>
+            <SelectTrigger className="sm:w-56"><SelectValue placeholder="Agents" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes les boutiques</SelectItem>
+              <SelectItem value="with">Avec agents</SelectItem>
+              <SelectItem value="without">Sans agents</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="sm:w-56"><SelectValue placeholder="Trier" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Trier : nom (A→Z)</SelectItem>
+              <SelectItem value="members">Trier : plus de membres</SelectItem>
+              <SelectItem value="recent">Trier : plus récentes</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="text-xs text-muted-foreground sm:ml-auto sm:self-center">
+            {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
+          </div>
         </div>
       </Card>
 

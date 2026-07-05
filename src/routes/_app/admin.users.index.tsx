@@ -128,7 +128,7 @@ function AdminUsersPage() {
         subtitle="Boutiques, propriétaires et agents"
       />
 
-      <Card className="p-4">
+      <Card className="p-4 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -137,6 +137,27 @@ function AdminUsersPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Select value={agentFilter} onValueChange={(v) => setAgentFilter(v as typeof agentFilter)}>
+            <SelectTrigger className="sm:w-56"><SelectValue placeholder="Agents" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes les boutiques</SelectItem>
+              <SelectItem value="with">Avec agents</SelectItem>
+              <SelectItem value="without">Sans agents</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="sm:w-56"><SelectValue placeholder="Trier" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Trier : nom (A→Z)</SelectItem>
+              <SelectItem value="members">Trier : plus de membres</SelectItem>
+              <SelectItem value="recent">Trier : plus récentes</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="text-xs text-muted-foreground sm:ml-auto sm:self-center">
+            {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
+          </div>
         </div>
       </Card>
 

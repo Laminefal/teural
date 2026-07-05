@@ -56,6 +56,9 @@ function AdminPage() {
   const setSuspended = useServerFn(adminSetShopSuspended);
 
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "premium" | "free" | "expiring">("all");
+  const [suspendedFilter, setSuspendedFilter] = useState<"all" | "active" | "suspended">("all");
+  const [sortBy, setSortBy] = useState<"recent" | "name" | "expiry" | "revenue">("recent");
   const [detailRow, setDetailRow] = useState<Owner | null>(null);
   const [extendRow, setExtendRow] = useState<Owner | null>(null);
   const [extendDays, setExtendDays] = useState<number | "">(30);

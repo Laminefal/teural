@@ -110,16 +110,45 @@ function AdminPage() {
   };
 
   const filtered = useMemo(() => {
-    const rows = ownersQ.data ?? [];
+    let rows = (ownersQ.data ?? []).slice();
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      (r.shopName ?? "").toLowerCase().includes(q) ||
-      (r.email ?? "").toLowerCase().includes(q) ||
-      (r.ownerName ?? "").toLowerCase().includes(q) ||
-      (r.phone ?? "").toLowerCase().includes(q),
-    );
-  }, [ownersQ.data, search]);
+    if (q) {
+      rows = rows.filter((r) =>
+        (r.shopName ?? "").toLowerCase().includes(q) ||
+        (r.email ?? "").toLowerCase().includes(q) ||
+        (r.ownerName ?? "").toLowerCase().includes(q) ||
+        (r.phone ?? "").toLowerCase().includes(q),
+      );
+    }
+    if (statusFilter !== "all") {
+      const now = Date.now();
+      const in7 = now + 7 * 24 * 3600 * 1000;
+      rows = rows.filter((r) => {
+        const active = isActive(r);
+        if (statusFilter === "premium") return active;
+        if (statusFilter === "free") return !active;
+        if (statusFilter === "expiring") {
+          const exp = r.subscriptionExpiresAt ? new Date(r.subscriptionExpiresAt).getTime() : 0;
+          return active && exp > now && exp <= in7;
+        }
+        return true;
+      });
+    }
+    if (suspendedFilter !== "all") {
+      rows = rows.filter((r) => (suspendedFilter === "suspended" ? r.isSuspended : !r.isSuspended));
+    }
+    rows.sort((a, b) => {
+      if (sortBy === "name") return (a.shopName ?? "").localeCompare(b.shopName ?? "");
+      if (sortBy === "revenue") return (b.revenue ?? 0) - (a.revenue ?? 0);
+      if (sortBy === "expiry") {
+        const ax = a.subscriptionExpiresAt ? new Date(a.subscriptionExpiresAt).getTime() : Infinity;
+        const bx = b.subscriptionExpiresAt ? new Date(b.subscriptionExpiresAt).getTime() : Infinity;
+        return ax - bx;
+      }
+      return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+    });
+    return rows;
+  }, [ownersQ.data, search, statusFilter, suspendedFilter, sortBy]);
 
   if (loading) {
     return (

@@ -129,7 +129,7 @@ export const listShopOwners = createServerFn({ method: "GET" })
       }),
     );
 
-    return (roles ?? []).map((r) => {
+    return roles.map((r) => {
       const p = profiles?.find((x) => x.id === r.user_id);
       const a = authMap.get(r.user_id);
       const s = salesByUser.get(r.user_id) ?? { count: 0, revenue: 0 };

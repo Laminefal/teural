@@ -62,13 +62,18 @@ export const listShopOwners = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
 
-    const { data: roles, error: rErr } = await supabaseAdmin
+    const { data: rolesRaw, error: rErr } = await supabaseAdmin
       .from("user_roles")
       .select("user_id, shop_id, shops(name, is_suspended)")
       .eq("role", "owner");
     if (rErr) throw rErr;
 
-    const userIds = (roles ?? []).map((r) => r.user_id);
+    // Exclude admin accounts — they don't have a subscription
+    const { data: adminRows } = await supabaseAdmin.from("admin_users").select("user_id");
+    const adminIds = new Set((adminRows ?? []).map((a) => a.user_id));
+    const roles = (rolesRaw ?? []).filter((r) => !adminIds.has(r.user_id));
+
+    const userIds = roles.map((r) => r.user_id);
     if (userIds.length === 0) return [];
 
     const { data: profilesRaw, error: pErr } = await supabaseAdmin

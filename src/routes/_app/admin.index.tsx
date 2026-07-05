@@ -175,7 +175,7 @@ function AdminPage() {
         <StatCard label="Expirent < 7 jours" value={s?.expiringSoon ?? "—"} icon={<Clock className="h-4 w-4 text-amber-600" />} />
       </div>
 
-      <Card className="p-4">
+      <Card className="p-4 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -184,6 +184,37 @@ function AdminPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+            <SelectTrigger className="sm:w-48"><SelectValue placeholder="Abonnement" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les abonnements</SelectItem>
+              <SelectItem value="premium">Premium</SelectItem>
+              <SelectItem value="free">Gratuite</SelectItem>
+              <SelectItem value="expiring">Expire {"<"} 7 jours</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={suspendedFilter} onValueChange={(v) => setSuspendedFilter(v as typeof suspendedFilter)}>
+            <SelectTrigger className="sm:w-48"><SelectValue placeholder="État" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Actives et suspendues</SelectItem>
+              <SelectItem value="active">Actives uniquement</SelectItem>
+              <SelectItem value="suspended">Suspendues uniquement</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="sm:w-48"><SelectValue placeholder="Trier" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Trier : plus récentes</SelectItem>
+              <SelectItem value="name">Trier : nom (A→Z)</SelectItem>
+              <SelectItem value="expiry">Trier : expiration proche</SelectItem>
+              <SelectItem value="revenue">Trier : chiffre d'affaires</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="text-xs text-muted-foreground sm:ml-auto sm:self-center">
+            {filtered.length} boutique{filtered.length > 1 ? "s" : ""}
+          </div>
         </div>
       </Card>
 

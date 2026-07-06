@@ -22,6 +22,7 @@ import { Route as AppAgentsRouteImport } from './routes/_app/agents'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as AppAdminIndexRouteImport } from './routes/_app/admin.index'
 import { Route as ApiPublicPaydunyaIpnRouteImport } from './routes/api/public/paydunya-ipn'
+import { Route as AppAdminRevenueRouteImport } from './routes/_app/admin.revenue'
 import { Route as AppAdminUsersIndexRouteImport } from './routes/_app/admin.users.index'
 import { Route as AppAdminUsersUserIdRouteImport } from './routes/_app/admin.users.$userId'
 
@@ -89,6 +90,11 @@ const ApiPublicPaydunyaIpnRoute = ApiPublicPaydunyaIpnRouteImport.update({
   path: '/api/public/paydunya-ipn',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppAdminRevenueRoute = AppAdminRevenueRouteImport.update({
+  id: '/revenue',
+  path: '/revenue',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 const AppAdminUsersIndexRoute = AppAdminUsersIndexRouteImport.update({
   id: '/users/',
   path: '/users/',
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/products': typeof AppProductsRoute
   '/sales': typeof AppSalesRoute
   '/subscription': typeof AppSubscriptionRoute
+  '/admin/revenue': typeof AppAdminRevenueRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
   '/admin/': typeof AppAdminIndexRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/products': typeof AppProductsRoute
   '/sales': typeof AppSalesRoute
   '/subscription': typeof AppSubscriptionRoute
+  '/admin/revenue': typeof AppAdminRevenueRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
   '/admin': typeof AppAdminIndexRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/_app/products': typeof AppProductsRoute
   '/_app/sales': typeof AppSalesRoute
   '/_app/subscription': typeof AppSubscriptionRoute
+  '/_app/admin/revenue': typeof AppAdminRevenueRoute
   '/api/public/paydunya-ipn': typeof ApiPublicPaydunyaIpnRoute
   '/_app/admin/': typeof AppAdminIndexRoute
   '/_app/admin/users/$userId': typeof AppAdminUsersUserIdRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/sales'
     | '/subscription'
+    | '/admin/revenue'
     | '/api/public/paydunya-ipn'
     | '/admin/'
     | '/admin/users/$userId'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/sales'
     | '/subscription'
+    | '/admin/revenue'
     | '/api/public/paydunya-ipn'
     | '/admin'
     | '/admin/users/$userId'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/_app/products'
     | '/_app/sales'
     | '/_app/subscription'
+    | '/_app/admin/revenue'
     | '/api/public/paydunya-ipn'
     | '/_app/admin/'
     | '/_app/admin/users/$userId'
@@ -300,6 +312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPaydunyaIpnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/admin/revenue': {
+      id: '/_app/admin/revenue'
+      path: '/revenue'
+      fullPath: '/admin/revenue'
+      preLoaderRoute: typeof AppAdminRevenueRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
     '/_app/admin/users/': {
       id: '/_app/admin/users/'
       path: '/users'
@@ -318,12 +337,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppAdminRouteChildren {
+  AppAdminRevenueRoute: typeof AppAdminRevenueRoute
   AppAdminIndexRoute: typeof AppAdminIndexRoute
   AppAdminUsersUserIdRoute: typeof AppAdminUsersUserIdRoute
   AppAdminUsersIndexRoute: typeof AppAdminUsersIndexRoute
 }
 
 const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminRevenueRoute: AppAdminRevenueRoute,
   AppAdminIndexRoute: AppAdminIndexRoute,
   AppAdminUsersUserIdRoute: AppAdminUsersUserIdRoute,
   AppAdminUsersIndexRoute: AppAdminUsersIndexRoute,

@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store, HandCoins, Users, Crown, ShieldCheck, UserCog, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Package, Receipt, Wallet, LogOut, Menu, Store, HandCoins, Users, Crown, ShieldCheck, UserCog, TrendingUp, BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useRole } from "@/lib/role";
@@ -19,6 +19,7 @@ const baseNav = [
   { to: "/admin", label: "Gestion des boutiques", icon: ShieldCheck, adminOnly: true },
   { to: "/admin/users", label: "Gestion des users", icon: UserCog, adminOnly: true },
   { to: "/admin/revenue", label: "Revenus", icon: TrendingUp, adminOnly: true },
+  { to: "/admin/analytics", label: "Statistiques", icon: BarChart3, adminOnly: true },
 
 ] as const;
 

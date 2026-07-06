@@ -509,3 +509,120 @@ export const adminDeleteOwner = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+export const getRevenueStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+
+    const { data: paymentsRaw, error } = await supabaseAdmin
+      .from("subscription_payments")
+      .select("id, amount, currency, status, plan, payment_method, paid_at, created_at, user_id, shop_id")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    const payments = paymentsRaw ?? [];
+
+    const paid = payments.filter((p) => {
+      const s = (p.status ?? "").toLowerCase();
+      return s === "completed" || s === "paid" || s === "success" || s === "succeeded" || !!p.paid_at;
+    });
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfPrev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfPrev = startOfMonth;
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+    const totalRevenue = paid.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+    const monthRevenue = paid
+      .filter((p) => new Date(p.paid_at ?? p.created_at) >= startOfMonth)
+      .reduce((s, p) => s + Number(p.amount ?? 0), 0);
+    const prevMonthRevenue = paid
+      .filter((p) => {
+        const d = new Date(p.paid_at ?? p.created_at);
+        return d >= startOfPrev && d < endOfPrev;
+      })
+      .reduce((s, p) => s + Number(p.amount ?? 0), 0);
+    const yearRevenue = paid
+      .filter((p) => new Date(p.paid_at ?? p.created_at) >= startOfYear)
+      .reduce((s, p) => s + Number(p.amount ?? 0), 0);
+
+    // Monthly series — last 12 months
+    const monthly: Array<{ key: string; label: string; revenue: number; count: number }> = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+      monthly.push({ key, label, revenue: 0, count: 0 });
+    }
+    const idx = new Map(monthly.map((m, i) => [m.key, i]));
+    paid.forEach((p) => {
+      const d = new Date(p.paid_at ?? p.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const i = idx.get(key);
+      if (i !== undefined) {
+        monthly[i].revenue += Number(p.amount ?? 0);
+        monthly[i].count += 1;
+      }
+    });
+
+    // By plan
+    const byPlanMap = new Map<string, { plan: string; revenue: number; count: number }>();
+    paid.forEach((p) => {
+      const k = p.plan ?? "—";
+      const cur = byPlanMap.get(k) ?? { plan: k, revenue: 0, count: 0 };
+      cur.revenue += Number(p.amount ?? 0);
+      cur.count += 1;
+      byPlanMap.set(k, cur);
+    });
+
+    // By payment method
+    const byMethodMap = new Map<string, { method: string; revenue: number; count: number }>();
+    paid.forEach((p) => {
+      const k = p.payment_method ?? "—";
+      const cur = byMethodMap.get(k) ?? { method: k, revenue: 0, count: 0 };
+      cur.revenue += Number(p.amount ?? 0);
+      cur.count += 1;
+      byMethodMap.set(k, cur);
+    });
+
+    // Recent payments — enrich with shop name & owner email
+    const recent = paid.slice(0, 20);
+    const shopIds = Array.from(new Set(recent.map((p) => p.shop_id).filter(Boolean)));
+    const userIds = Array.from(new Set(recent.map((p) => p.user_id).filter(Boolean)));
+    const [{ data: shops }, { data: profiles }] = await Promise.all([
+      shopIds.length
+        ? supabaseAdmin.from("shops").select("id, name").in("id", shopIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; name: string }> }),
+      userIds.length
+        ? supabaseAdmin.from("profiles").select("id, owner_name").in("id", userIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; owner_name: string | null }> }),
+    ]);
+    const shopMap = new Map((shops ?? []).map((s) => [s.id, s.name]));
+    const ownerMap = new Map((profiles ?? []).map((p) => [p.id, p.owner_name]));
+
+    const recentEnriched = recent.map((p) => ({
+      id: p.id,
+      amount: Number(p.amount ?? 0),
+      currency: p.currency ?? "XOF",
+      plan: p.plan,
+      method: p.payment_method,
+      status: p.status,
+      paidAt: p.paid_at ?? p.created_at,
+      shopName: shopMap.get(p.shop_id) ?? "—",
+      ownerName: ownerMap.get(p.user_id) ?? "—",
+    }));
+
+    return {
+      totalRevenue,
+      monthRevenue,
+      prevMonthRevenue,
+      yearRevenue,
+      paidCount: paid.length,
+      pendingCount: payments.length - paid.length,
+      monthly,
+      byPlan: Array.from(byPlanMap.values()).sort((a, b) => b.revenue - a.revenue),
+      byMethod: Array.from(byMethodMap.values()).sort((a, b) => b.revenue - a.revenue),
+      recent: recentEnriched,
+    };
+  });

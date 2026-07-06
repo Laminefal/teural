@@ -19,6 +19,7 @@ const baseNav = [
   { to: "/admin", label: "Gestion des boutiques", icon: ShieldCheck, adminOnly: true },
   { to: "/admin/users", label: "Gestion des users", icon: UserCog, adminOnly: true },
   { to: "/admin/revenue", label: "Revenus", icon: TrendingUp, adminOnly: true },
+  { to: "/admin/analytics", label: "Statistiques", icon: BarChart3, adminOnly: true },
 
 ] as const;
 

@@ -626,3 +626,188 @@ export const getRevenueStats = createServerFn({ method: "GET" })
       recent: recentEnriched,
     };
   });
+
+export const getProductStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+
+    const [salesRes, productsRes, shopsRes] = await Promise.all([
+      supabaseAdmin
+        .from("sales")
+        .select("product_id, product_name, quantity, total, shop_id, created_at, is_cancelled"),
+      supabaseAdmin.from("products").select("id, name, category, shop_id, stock, price"),
+      supabaseAdmin.from("shops").select("id, name"),
+    ]);
+    if (salesRes.error) throw salesRes.error;
+    if (productsRes.error) throw productsRes.error;
+    if (shopsRes.error) throw shopsRes.error;
+
+    const sales = (salesRes.data ?? []).filter((s) => !s.is_cancelled);
+    const products = productsRes.data ?? [];
+    const shops = shopsRes.data ?? [];
+
+    const shopMap = new Map(shops.map((s) => [s.id, s.name]));
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    type Agg = {
+      key: string;
+      productId: string | null;
+      name: string;
+      category: string | null;
+      shopId: string | null;
+      shopName: string;
+      unitsSold: number;
+      revenue: number;
+      salesCount: number;
+      stock: number | null;
+      lastSaleAt: string | null;
+    };
+    const map = new Map<string, Agg>();
+    for (const s of sales) {
+      const p = s.product_id ? productMap.get(s.product_id) : null;
+      const key = s.product_id ?? `name:${s.product_name}:${s.shop_id}`;
+      const shopId = p?.shop_id ?? s.shop_id ?? null;
+      const cur = map.get(key) ?? {
+        key,
+        productId: s.product_id ?? null,
+        name: p?.name ?? s.product_name,
+        category: p?.category ?? null,
+        shopId,
+        shopName: shopId ? (shopMap.get(shopId) ?? "—") : "—",
+        unitsSold: 0,
+        revenue: 0,
+        salesCount: 0,
+        stock: p?.stock ?? null,
+        lastSaleAt: null,
+      };
+      cur.unitsSold += Number(s.quantity ?? 0);
+      cur.revenue += Number(s.total ?? 0);
+      cur.salesCount += 1;
+      if (!cur.lastSaleAt || (s.created_at && s.created_at > cur.lastSaleAt)) cur.lastSaleAt = s.created_at;
+      map.set(key, cur);
+    }
+
+    // Include products with 0 sales for "least sold" view
+    for (const p of products) {
+      const key = p.id;
+      if (map.has(key)) continue;
+      map.set(key, {
+        key,
+        productId: p.id,
+        name: p.name,
+        category: p.category ?? null,
+        shopId: p.shop_id,
+        shopName: shopMap.get(p.shop_id) ?? "—",
+        unitsSold: 0,
+        revenue: 0,
+        salesCount: 0,
+        stock: p.stock,
+        lastSaleAt: null,
+      });
+    }
+
+    const items = Array.from(map.values());
+    const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean))) as string[];
+
+    return {
+      items,
+      shops: shops.map((s) => ({ id: s.id, name: s.name })),
+      categories,
+    };
+  });
+
+export const getShopsGrowth = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+
+    const { data: adminRows } = await supabaseAdmin.from("admin_users").select("user_id");
+    const adminIds = new Set((adminRows ?? []).map((a) => a.user_id));
+
+    const [shopsRes, profilesRes, paymentsRes] = await Promise.all([
+      supabaseAdmin.from("shops").select("id, name, owner_id, created_at, is_suspended"),
+      supabaseAdmin
+        .from("profiles")
+        .select("id, subscription_status, subscription_expires_at, trial_ends_at, created_at"),
+      supabaseAdmin
+        .from("subscription_payments")
+        .select("user_id, amount, status, paid_at, created_at"),
+    ]);
+    if (shopsRes.error) throw shopsRes.error;
+    if (profilesRes.error) throw profilesRes.error;
+    if (paymentsRes.error) throw paymentsRes.error;
+
+    const shops = (shopsRes.data ?? []).filter((s) => !adminIds.has(s.owner_id));
+    const profiles = (profilesRes.data ?? []).filter((p) => !adminIds.has(p.id));
+    const payments = paymentsRes.data ?? [];
+
+    // Monthly series: shops created + subscribed users active at end of month
+    const now = new Date();
+    const months: { key: string; label: string; shopsCreated: number; cumulativeShops: number; newSubs: number; activeSubs: number }[] = [];
+    const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+
+    // Determine first-paid date per user
+    const firstPaidByUser = new Map<string, string>();
+    for (const p of payments) {
+      const paid = ["completed", "paid", "success", "successful"].includes(String(p.status ?? "").toLowerCase());
+      if (!paid) continue;
+      const t = p.paid_at ?? p.created_at;
+      if (!t) continue;
+      const cur = firstPaidByUser.get(p.user_id);
+      if (!cur || t < cur) firstPaidByUser.set(p.user_id, t);
+    }
+
+    for (let i = 11; i >= 0; i--) {
+      const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      const key = monthKey(start);
+      const label = start.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+      const shopsCreated = shops.filter((s) => {
+        const d = new Date(s.created_at);
+        return d >= start && d < end;
+      }).length;
+      const cumulativeShops = shops.filter((s) => new Date(s.created_at) < end).length;
+      const newSubs = Array.from(firstPaidByUser.values()).filter((t) => {
+        const d = new Date(t);
+        return d >= start && d < end;
+      }).length;
+      // Active subscribers at end of month: profile with paid status + expires > end
+      const activeSubs = profiles.filter((p) => {
+        if (!p.subscription_expires_at) return false;
+        if (p.subscription_status === "free") return false;
+        return new Date(p.subscription_expires_at) >= end && new Date(p.created_at ?? end) < end;
+      }).length;
+      months.push({ key, label, shopsCreated, cumulativeShops, newSubs, activeSubs });
+    }
+
+    const totalShops = shops.length;
+    const suspendedShops = shops.filter((s) => s.is_suspended).length;
+    const activeShops = totalShops - suspendedShops;
+    const activeSubsNow = profiles.filter(
+      (p) => p.subscription_status !== "free" && p.subscription_expires_at && new Date(p.subscription_expires_at) > now,
+    ).length;
+    const trialingNow = profiles.filter(
+      (p) => (p.subscription_status === "free" || !p.subscription_status)
+        && p.trial_ends_at && new Date(p.trial_ends_at) > now,
+    ).length;
+    const expiredNow = profiles.filter(
+      (p) => (!p.subscription_expires_at || new Date(p.subscription_expires_at) <= now)
+        && (!p.trial_ends_at || new Date(p.trial_ends_at) <= now),
+    ).length;
+
+    const conversionRate = totalShops > 0 ? (activeSubsNow / totalShops) * 100 : 0;
+
+    return {
+      months,
+      totals: {
+        totalShops,
+        activeShops,
+        suspendedShops,
+        activeSubsNow,
+        trialingNow,
+        expiredNow,
+        conversionRate,
+      },
+    };
+  });

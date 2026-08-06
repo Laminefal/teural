@@ -128,7 +128,7 @@ function Dashboard() {
   return (
     <div>
       <PageHeader
-        title={`Bonjour${stats?.profile?.owner_name ? `, ${stats.profile.owner_name.split(" ")[0]}` : ""} 👋`}
+        title={stats?.profile?.owner_name ?? ""}
         subtitle={stats?.profile?.shop_name ?? "Votre tableau de bord"}
       />
 

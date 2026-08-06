@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { formatFCFA } from "@/lib/format";
+import { formatDate, formatFCFA } from "@/lib/format";
 
 export const Route = createFileRoute("/_app/products")({
   component: ProductsPage,
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_app/products")({
 
 type Product = {
   id: string; name: string; sku: string | null; barcode: string | null; category: string | null;
-  price: number; cost: number; stock: number; low_stock_threshold: number;
+  price: number; cost: number; stock: number; low_stock_threshold: number; expiry_date: string | null;
 };
 
 function generateSKU(name: string): string {
@@ -82,7 +82,7 @@ function ProductsPage() {
       if (p.id) {
         const { error } = await supabase.from("products").update({
           name: p.name, sku: p.sku, barcode: p.barcode, category: p.category,
-          price: p.price, cost: p.cost, stock: p.stock,
+          price: p.price, cost: p.cost, stock: p.stock, expiry_date: p.expiry_date ?? null,
           low_stock_threshold: p.low_stock_threshold, updated_at: new Date().toISOString(),
         }).eq("id", p.id);
         if (error) throw error;
@@ -94,6 +94,7 @@ function ProductsPage() {
           category: p.category ?? null,
           price: p.price ?? 0, cost: p.cost ?? 0, stock: p.stock ?? 0,
           low_stock_threshold: p.low_stock_threshold ?? 5,
+          expiry_date: p.expiry_date ?? null,
         });
         if (error) throw error;
       }
@@ -141,6 +142,7 @@ function ProductsPage() {
       cost: Number(fd.get("cost") || 0),
       stock: Number(fd.get("stock") || 0),
       low_stock_threshold: Number(fd.get("low_stock_threshold") || 5),
+      expiry_date: String(fd.get("expiry_date") || "") || null,
     });
   };
 
@@ -183,6 +185,7 @@ function ProductsPage() {
                   <Field label="Prix de vente (FCFA)" name="price" type="number" defaultValue={editing?.price ?? 0} required />
                   <Field label="Coût d'achat (FCFA)" name="cost" type="number" defaultValue={editing?.cost ?? 0} />
                   <Field label="Seuil alerte stock" name="low_stock_threshold" type="number" defaultValue={editing?.low_stock_threshold ?? 5} />
+                  <Field label="Date d'expiration" name="expiry_date" type="date" defaultValue={editing?.expiry_date ?? ""} />
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={upsert.isPending}>Enregistrer</Button>
@@ -205,6 +208,7 @@ function ProductsPage() {
               <tr>
                 <th className="px-4 py-3">Produit</th>
                 <th className="px-4 py-3">Catégorie</th>
+                <th className="px-4 py-3">Expiration</th>
                 <th className="px-4 py-3 text-right">Prix</th>
                 <th className="px-4 py-3 text-right">Stock</th>
                 <th className="px-4 py-3 text-right">Valeur</th>
@@ -212,9 +216,9 @@ function ProductsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {isLoading && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Chargement...</td></tr>}
+              {isLoading && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Chargement...</td></tr>}
               {!isLoading && filtered.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">Aucun produit. Cliquez sur "Nouveau produit" pour commencer.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">Aucun produit. Cliquez sur "Nouveau produit" pour commencer.</td></tr>
               )}
               {filtered.map((p) => {
                 const low = p.stock <= p.low_stock_threshold;
@@ -225,6 +229,16 @@ function ProductsPage() {
                       {p.sku && <div className="text-xs text-muted-foreground">{p.sku}</div>}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{p.category ?? "—"}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {p.expiry_date ? (() => {
+                        const days = Math.ceil((new Date(p.expiry_date).getTime() - new Date().setHours(0,0,0,0)) / 86400000);
+                        return (
+                          <span className={days <= 90 ? "font-medium text-destructive" : "text-muted-foreground"}>
+                            {formatDate(p.expiry_date)}{days < 0 ? " (expiré)" : ""}
+                          </span>
+                        );
+                      })() : <span className="text-muted-foreground">—</span>}
+                    </td>
                     <td className="px-4 py-3 text-right font-medium">{formatFCFA(p.price)}</td>
                     <td className="px-4 py-3 text-right">
                       {low ? (

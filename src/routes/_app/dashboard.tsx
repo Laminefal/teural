@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, Boxes, Receipt, TrendingUp, Wallet, AlertTriangle, CalendarIcon } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Boxes, Receipt, TrendingUp, Wallet, AlertTriangle, CalendarIcon, CalendarClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
-import { formatFCFA, formatDateTime } from "@/lib/format";
+import { formatFCFA, formatDateTime, formatDate } from "@/lib/format";
+
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,16 @@ function Dashboard() {
   const profit = revenue - expensesTotal;
   const inventoryValue = products.reduce((a, p) => a + Number(p.cost) * Number(p.stock), 0);
   const lowStock = products.filter((p) => Number(p.stock) <= Number(p.low_stock_threshold));
+
+  const expiring = useMemo(() => {
+    const now = startOfDay(new Date());
+    const limit = new Date(now); limit.setMonth(limit.getMonth() + 3);
+    return (products as any[])
+      .filter((p) => p.expiry_date && new Date(p.expiry_date) <= limit)
+      .map((p) => ({ ...p, days: Math.ceil((new Date(p.expiry_date).getTime() - now.getTime()) / 86400000) }))
+      .sort((a, b) => a.days - b.days);
+  }, [products]);
+
 
   // chart over selected range (bucket by day, cap at 60 buckets)
   const days = useMemo(() => {
@@ -234,6 +245,33 @@ function Dashboard() {
           <Link to="/products" className="mt-4 inline-block text-xs font-medium text-accent hover:underline">Gérer les produits →</Link>
         </Card>
       </div>
+
+      <Card className="mt-6 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg font-semibold">Produits qui expirent dans 3 mois</h3>
+          <Badge variant={expiring.length ? "destructive" : "secondary"}>{expiring.length}</Badge>
+        </div>
+        {expiring.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucun produit n'expire dans les 3 prochains mois.</p>
+        ) : (
+          <div className="divide-y divide-border/60">
+            {expiring.slice(0, 8).map((p: any) => (
+              <div key={p.id} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">{p.name}</div>
+                  <div className="text-xs text-muted-foreground">Expire le {formatDate(p.expiry_date)} · Stock {p.stock}</div>
+                </div>
+                <Badge variant={p.days < 0 ? "destructive" : p.days <= 30 ? "destructive" : "secondary"} className="gap-1 shrink-0">
+                  <CalendarClock className="h-3 w-3" />
+                  {p.days < 0 ? "Expiré" : `${p.days} j`}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
+        <Link to="/products" className="mt-4 inline-block text-xs font-medium text-accent hover:underline">Gérer les produits →</Link>
+      </Card>
+
 
       <Card className="mt-6 p-6">
         <h3 className="font-display text-lg font-semibold mb-4">Ventes récentes</h3>

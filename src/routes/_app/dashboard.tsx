@@ -85,6 +85,16 @@ function Dashboard() {
   const inventoryValue = products.reduce((a, p) => a + Number(p.cost) * Number(p.stock), 0);
   const lowStock = products.filter((p) => Number(p.stock) <= Number(p.low_stock_threshold));
 
+  const expiring = useMemo(() => {
+    const now = startOfDay(new Date());
+    const limit = new Date(now); limit.setMonth(limit.getMonth() + 3);
+    return (products as any[])
+      .filter((p) => p.expiry_date && new Date(p.expiry_date) <= limit)
+      .map((p) => ({ ...p, days: Math.ceil((new Date(p.expiry_date).getTime() - now.getTime()) / 86400000) }))
+      .sort((a, b) => a.days - b.days);
+  }, [products]);
+
+
   // chart over selected range (bucket by day, cap at 60 buckets)
   const days = useMemo(() => {
     const out: { date: string; ventes: number; depenses: number }[] = [];

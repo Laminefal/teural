@@ -137,8 +137,9 @@ function SuspendedBanner() {
 export function AppShell() {
   const [open, setOpen] = useState(false);
   const { shopName, isAdmin } = useRole();
-  const mobileTitle = shopName ?? (isAdmin ? "Administration" : "Ma boutique");
+  return (
     <div className="min-h-screen flex w-full bg-background">
+
       <aside className="hidden lg:block w-64 shrink-0 border-r border-border/60">
         <SidebarInner />
       </aside>

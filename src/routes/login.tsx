@@ -104,8 +104,15 @@ function Login() {
               <form onSubmit={onSignUp} className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="owner_name">Nom complet</Label>
-                  <Input id="owner_name" name="owner_name" required />
+                  <Input id="owner_name" name="owner_name" placeholder="Ex : Aminata Diop" required />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shop_name">Nom de la boutique</Label>
+                  <Input id="shop_name" name="shop_name" placeholder="Ex : Boutique Teranga Dakar" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email2">Email</Label>
+
                 <div className="space-y-2">
                   <Label htmlFor="email2">Email</Label>
                   <Input id="email2" name="email" type="email" required autoComplete="email" />

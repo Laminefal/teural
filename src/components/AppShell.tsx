@@ -136,8 +136,11 @@ function SuspendedBanner() {
 
 export function AppShell() {
   const [open, setOpen] = useState(false);
+  const { shopName, isAdmin } = useRole();
+  const mobileTitle = shopName ?? (isAdmin ? "Administration" : "Ma boutique");
   return (
     <div className="min-h-screen flex w-full bg-background">
+
       <aside className="hidden lg:block w-64 shrink-0 border-r border-border/60">
         <SidebarInner />
       </aside>
@@ -147,9 +150,9 @@ export function AppShell() {
           <SubscriptionBadge />
         </header>
         <header className="lg:hidden flex items-center justify-between p-4 border-b border-border/60 bg-card">
-          <div className="flex items-center gap-2">
-            <Store className="h-5 w-5 text-accent" />
-            <span className="font-display font-semibold">Teranga</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <Store className="h-5 w-5 text-accent shrink-0" />
+            <span className="font-display font-semibold truncate">{mobileTitle}</span>
           </div>
           <div className="flex items-center gap-2">
             <SubscriptionBadge />

@@ -116,6 +116,7 @@ export type Database = {
           category: string | null
           cost: number
           created_at: string
+          expiry_date: string | null
           id: string
           low_stock_threshold: number
           name: string
@@ -131,6 +132,7 @@ export type Database = {
           category?: string | null
           cost?: number
           created_at?: string
+          expiry_date?: string | null
           id?: string
           low_stock_threshold?: number
           name: string
@@ -146,6 +148,7 @@ export type Database = {
           category?: string | null
           cost?: number
           created_at?: string
+          expiry_date?: string | null
           id?: string
           low_stock_threshold?: number
           name?: string

@@ -44,7 +44,10 @@ function Login() {
       password: String(fd.get("password")),
       options: {
         emailRedirectTo: window.location.origin,
-        data: { owner_name: String(fd.get("owner_name") || "") },
+        data: {
+          owner_name: String(fd.get("owner_name") || ""),
+          shop_name: String(fd.get("shop_name") || ""),
+        },
       },
     });
     setBusy(false);

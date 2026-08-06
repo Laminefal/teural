@@ -110,8 +110,6 @@ function Login() {
                   <Label htmlFor="shop_name">Nom de la boutique</Label>
                   <Input id="shop_name" name="shop_name" placeholder="Ex : Boutique Teranga Dakar" required />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email2">Email</Label>
 
                 <div className="space-y-2">
                   <Label htmlFor="email2">Email</Label>

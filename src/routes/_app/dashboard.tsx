@@ -246,6 +246,33 @@ function Dashboard() {
       </div>
 
       <Card className="mt-6 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg font-semibold">Produits qui expirent dans 3 mois</h3>
+          <Badge variant={expiring.length ? "destructive" : "secondary"}>{expiring.length}</Badge>
+        </div>
+        {expiring.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucun produit n'expire dans les 3 prochains mois.</p>
+        ) : (
+          <div className="divide-y divide-border/60">
+            {expiring.slice(0, 8).map((p: any) => (
+              <div key={p.id} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">{p.name}</div>
+                  <div className="text-xs text-muted-foreground">Expire le {formatDate(p.expiry_date)} · Stock {p.stock}</div>
+                </div>
+                <Badge variant={p.days < 0 ? "destructive" : p.days <= 30 ? "destructive" : "secondary"} className="gap-1 shrink-0">
+                  <CalendarClock className="h-3 w-3" />
+                  {p.days < 0 ? "Expiré" : `${p.days} j`}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        )}
+        <Link to="/products" className="mt-4 inline-block text-xs font-medium text-accent hover:underline">Gérer les produits →</Link>
+      </Card>
+
+
+      <Card className="mt-6 p-6">
         <h3 className="font-display text-lg font-semibold mb-4">Ventes récentes</h3>
         {sales.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aucune vente sur cette période. <Link to="/sales" className="text-accent hover:underline">Enregistrer une vente</Link></p>

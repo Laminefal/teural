@@ -44,7 +44,7 @@ function SubscriptionGate() {
 
   // Block owners whose trial expired AND no active sub.
   if (!isAdmin && isOwner && !hasActiveAccess && path !== "/subscription") {
-    return <Navigate to="/subscription" />;
+    return <Navigate to="/subscription" search={{ status: undefined }} />;
   }
 
   return <AppShell />;

@@ -32,7 +32,7 @@ function SubscriptionBadge() {
 
   if (subActive) {
     return (
-      <Link to="/subscription" className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 px-2.5 py-1 text-xs font-medium">
+      <Link to="/subscription" search={{ status: undefined }} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 px-2.5 py-1 text-xs font-medium">
         <Crown className="h-3 w-3" />
         Abonné jusqu'au {formatDate(subscriptionExpiresAt!)}
       </Link>
@@ -40,13 +40,13 @@ function SubscriptionBadge() {
   }
   if (trialActive) {
     return (
-      <Link to="/subscription" className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 px-2.5 py-1 text-xs font-medium">
+      <Link to="/subscription" search={{ status: undefined }} className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 px-2.5 py-1 text-xs font-medium">
         Essai jusqu'au {formatDate(trialEndsAt!)}
       </Link>
     );
   }
   return (
-    <Link to="/subscription" className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 px-2.5 py-1 text-xs font-medium">
+    <Link to="/subscription" search={{ status: undefined }} className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 px-2.5 py-1 text-xs font-medium">
       Compte expiré · S'abonner
     </Link>
   );

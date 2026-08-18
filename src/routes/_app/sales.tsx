@@ -12,8 +12,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { BarcodeScanner } from "@/components/BarcodeScanner";
+import { ProductPicker, type PickerProduct } from "@/components/ProductPicker";
 import { formatFCFA, formatDateTime } from "@/lib/format";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -68,8 +69,6 @@ function SalesPage() {
   // Grouped sale
   const [groupOpen, setGroupOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [addProductId, setAddProductId] = useState<string>("");
-  const [addQty, setAddQty] = useState(1);
   const [groupScanOpen, setGroupScanOpen] = useState(false);
 
   // Date range
@@ -168,8 +167,6 @@ function SalesPage() {
         max_stock: p.stock,
       }];
     });
-    setAddProductId("");
-    setAddQty(1);
   };
 
   const updateCartItem = (pid: string, patch: Partial<CartItem>) => {
@@ -265,22 +262,24 @@ function SalesPage() {
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <Label>Produit</Label>
-                    <div className="flex gap-2">
-                      <Select value={productId} onValueChange={(v) => { setProductId(v); setUnitPrice(""); }}>
-                        <SelectTrigger><SelectValue placeholder="Sélectionner un produit" /></SelectTrigger>
-                        <SelectContent>
-                          {products.length === 0 && <div className="p-3 text-xs text-muted-foreground">Aucun produit. Créez-en d'abord.</div>}
-                          {products.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.name} — {formatFCFA(p.price)} (stock: {p.stock})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button type="button" variant="outline" size="icon" onClick={() => setScanOpen(true)} title="Scanner">
-                        <ScanLine className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {selected ? (
+                      <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium">{selected.name}</div>
+                          <div className="text-xs text-muted-foreground">{formatFCFA(selected.price)} · stock {selected.stock}</div>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => { setProductId(""); setUnitPrice(""); }}>
+                          Changer
+                        </Button>
+                      </div>
+                    ) : (
+                      <ProductPicker
+                        products={products as PickerProduct[]}
+                        autoFocus={open}
+                        onScan={() => setScanOpen(true)}
+                        onSelect={(p) => { setProductId(p.id); setUnitPrice(""); }}
+                      />
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
@@ -364,35 +363,12 @@ function SalesPage() {
           <div className="space-y-4">
             <Card className="p-4 space-y-3">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ajouter un produit</Label>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="flex-1">
-                  <Select value={addProductId} onValueChange={setAddProductId}>
-                    <SelectTrigger><SelectValue placeholder="Sélectionner un produit" /></SelectTrigger>
-                    <SelectContent>
-                      {products.length === 0 && <div className="p-3 text-xs text-muted-foreground">Aucun produit.</div>}
-                      {products.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} — {formatFCFA(p.price)} (stock: {p.stock})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Input
-                  type="number"
-                  min={1}
-                  value={addQty}
-                  onChange={(e) => setAddQty(Math.max(1, Number(e.target.value)))}
-                  className="sm:w-24"
-                  placeholder="Qté"
-                />
-                <Button type="button" variant="outline" size="icon" onClick={() => setGroupScanOpen(true)} title="Scanner">
-                  <ScanLine className="h-4 w-4" />
-                </Button>
-                <Button type="button" onClick={() => addProductId && addToCart(addProductId, addQty)} disabled={!addProductId}>
-                  <Plus className="h-4 w-4" /> Ajouter
-                </Button>
-              </div>
+              <ProductPicker
+                products={products as PickerProduct[]}
+                autoFocus={groupOpen}
+                onScan={() => setGroupScanOpen(true)}
+                onSelect={(p) => addToCart(p.id, 1)}
+              />
             </Card>
 
             <div className="border rounded-lg overflow-hidden">

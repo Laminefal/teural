@@ -58,10 +58,10 @@ function SubscriptionPage() {
       toast.success("Paiement reçu. Mise à jour de votre statut en cours…");
       qc.invalidateQueries({ queryKey: ["subscription"] });
       qc.invalidateQueries({ queryKey: ["role-subscription"] });
-      navigate({ to: "/subscription", replace: true });
+      navigate({ to: "/subscription", search: { status: undefined }, replace: true });
     } else if (search.status === "cancelled") {
       toast.error("Paiement annulé.");
-      navigate({ to: "/subscription", replace: true });
+      navigate({ to: "/subscription", search: { status: undefined }, replace: true });
     }
   }, [search.status, navigate, qc]);
 

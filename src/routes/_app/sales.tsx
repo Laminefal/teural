@@ -167,8 +167,6 @@ function SalesPage() {
         max_stock: p.stock,
       }];
     });
-    setAddProductId("");
-    setAddQty(1);
   };
 
   const updateCartItem = (pid: string, patch: Partial<CartItem>) => {

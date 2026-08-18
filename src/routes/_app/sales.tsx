@@ -265,22 +265,24 @@ function SalesPage() {
                 <div className="space-y-4">
                   <div className="space-y-1.5">
                     <Label>Produit</Label>
-                    <div className="flex gap-2">
-                      <Select value={productId} onValueChange={(v) => { setProductId(v); setUnitPrice(""); }}>
-                        <SelectTrigger><SelectValue placeholder="Sélectionner un produit" /></SelectTrigger>
-                        <SelectContent>
-                          {products.length === 0 && <div className="p-3 text-xs text-muted-foreground">Aucun produit. Créez-en d'abord.</div>}
-                          {products.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.name} — {formatFCFA(p.price)} (stock: {p.stock})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button type="button" variant="outline" size="icon" onClick={() => setScanOpen(true)} title="Scanner">
-                        <ScanLine className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {selected ? (
+                      <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium">{selected.name}</div>
+                          <div className="text-xs text-muted-foreground">{formatFCFA(selected.price)} · stock {selected.stock}</div>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => { setProductId(""); setUnitPrice(""); }}>
+                          Changer
+                        </Button>
+                      </div>
+                    ) : (
+                      <ProductPicker
+                        products={products as PickerProduct[]}
+                        autoFocus={open}
+                        onScan={() => setScanOpen(true)}
+                        onSelect={(p) => { setProductId(p.id); setUnitPrice(""); }}
+                      />
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">

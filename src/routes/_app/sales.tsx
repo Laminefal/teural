@@ -257,7 +257,7 @@ function SalesPage() {
               <DialogTrigger asChild>
                 <Button className="bg-gradient-emerald text-primary-foreground"><Plus className="h-4 w-4" /> Nouvelle vente</Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg max-h-[85dvh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader><DialogTitle>Enregistrer une vente</DialogTitle></DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
@@ -281,7 +281,7 @@ function SalesPage() {
                       />
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <Label>Quantité</Label>
                       <Input type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value)))} />
@@ -298,8 +298,8 @@ function SalesPage() {
                     </Card>
                   )}
                 </div>
-                <DialogFooter>
-                  <Button onClick={() => create.mutate()} disabled={create.isPending || !selected}>Valider la vente</Button>
+                <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+                  <Button className="w-full sm:w-auto" onClick={() => create.mutate()} disabled={create.isPending || !selected}>Valider la vente</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>

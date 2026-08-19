@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, ScanLine, Trash2, ShoppingCart, X, CalendarIcon, Ban, RotateCcw } from "lucide-react";
+import { ScanLine, Trash2, ShoppingCart, X, CalendarIcon, Ban, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useRole } from "@/lib/role";
@@ -60,12 +60,6 @@ function SalesPage() {
   const { user } = useAuth();
   const { shopId, isOwner } = useRole();
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [productId, setProductId] = useState<string>("");
-  const [qty, setQty] = useState(1);
-  const [unitPrice, setUnitPrice] = useState<number | "">("");
-  const [scanOpen, setScanOpen] = useState(false);
-
   // Grouped sale
   const [groupOpen, setGroupOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);

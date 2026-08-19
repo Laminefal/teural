@@ -58,7 +58,7 @@ export function BarcodeScanner({ open, onClose, onDetected }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md max-h-[85dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Scanner un code-barres</DialogTitle>
         </DialogHeader>
@@ -77,7 +77,7 @@ export function BarcodeScanner({ open, onClose, onDetected }: Props) {
         <p className="text-xs text-muted-foreground">
           Placez le code-barres devant la caméra. Sur mobile, la caméra arrière est utilisée.
         </p>
-        <Button variant="outline" onClick={onClose}><X className="h-4 w-4" /> Annuler</Button>
+        <Button className="w-full sm:w-auto" variant="outline" onClick={onClose}><X className="h-4 w-4" /> Annuler</Button>
       </DialogContent>
     </Dialog>
   );

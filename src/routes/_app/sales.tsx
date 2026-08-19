@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, ScanLine, Trash2, ShoppingCart, X, CalendarIcon, Ban, RotateCcw } from "lucide-react";
+import { ScanLine, Trash2, ShoppingCart, X, CalendarIcon, Ban, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useRole } from "@/lib/role";
@@ -60,12 +60,6 @@ function SalesPage() {
   const { user } = useAuth();
   const { shopId, isOwner } = useRole();
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [productId, setProductId] = useState<string>("");
-  const [qty, setQty] = useState(1);
-  const [unitPrice, setUnitPrice] = useState<number | "">("");
-  const [scanOpen, setScanOpen] = useState(false);
-
   // Grouped sale
   const [groupOpen, setGroupOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -112,37 +106,6 @@ function SalesPage() {
         .limit(1000);
       return data ?? [];
     },
-  });
-
-  const selected = useMemo(() => products.find((p) => p.id === productId), [products, productId]);
-  const effectivePrice = unitPrice === "" ? Number(selected?.price ?? 0) : Number(unitPrice);
-  const total = effectivePrice * qty;
-
-  const create = useMutation({
-    mutationFn: async () => {
-      if (!selected) throw new Error("Choisissez un produit");
-      if (!shopId) throw new Error("Boutique introuvable");
-      if (qty < 1) throw new Error("Quantité invalide");
-      if (selected.stock < qty) throw new Error(`Stock insuffisant (${selected.stock})`);
-      const { error } = await supabase.from("sales").insert({
-        user_id: user!.id,
-        shop_id: shopId,
-        product_id: selected.id,
-        product_name: selected.name,
-        quantity: qty,
-        unit_price: effectivePrice,
-        total: effectivePrice * qty,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["sales"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      toast.success("Vente enregistrée");
-      setOpen(false); setProductId(""); setQty(1); setUnitPrice("");
-    },
-    onError: (e: Error) => toast.error(e.message),
   });
 
   const addToCart = (pid: string, quantity: number) => {

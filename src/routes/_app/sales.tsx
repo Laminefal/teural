@@ -108,37 +108,6 @@ function SalesPage() {
     },
   });
 
-  const selected = useMemo(() => products.find((p) => p.id === productId), [products, productId]);
-  const effectivePrice = unitPrice === "" ? Number(selected?.price ?? 0) : Number(unitPrice);
-  const total = effectivePrice * qty;
-
-  const create = useMutation({
-    mutationFn: async () => {
-      if (!selected) throw new Error("Choisissez un produit");
-      if (!shopId) throw new Error("Boutique introuvable");
-      if (qty < 1) throw new Error("Quantité invalide");
-      if (selected.stock < qty) throw new Error(`Stock insuffisant (${selected.stock})`);
-      const { error } = await supabase.from("sales").insert({
-        user_id: user!.id,
-        shop_id: shopId,
-        product_id: selected.id,
-        product_name: selected.name,
-        quantity: qty,
-        unit_price: effectivePrice,
-        total: effectivePrice * qty,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["sales"] });
-      qc.invalidateQueries({ queryKey: ["products"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      toast.success("Vente enregistrée");
-      setOpen(false); setProductId(""); setQty(1); setUnitPrice("");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   const addToCart = (pid: string, quantity: number) => {
     const p = products.find((x) => x.id === pid);
     if (!p) return toast.error("Produit introuvable");

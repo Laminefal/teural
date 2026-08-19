@@ -356,7 +356,7 @@ function SalesPage() {
 
       {/* Grouped sale dialog */}
       <Dialog open={groupOpen} onOpenChange={(v) => { setGroupOpen(v); if (!v) setCart([]); }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85dvh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Vente groupée</DialogTitle>
           </DialogHeader>
@@ -371,7 +371,8 @@ function SalesPage() {
               />
             </Card>
 
-            <div className="border rounded-lg overflow-hidden">
+            {/* Desktop table */}
+            <div className="hidden md:block border rounded-lg overflow-hidden">
               <div className="overflow-x-auto max-h-80">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground sticky top-0">
@@ -389,7 +390,7 @@ function SalesPage() {
                     )}
                     {cart.map((c) => (
                       <tr key={c.product_id}>
-                        <td className="px-3 py-2 font-medium">{c.product_name}</td>
+                        <td className="px-3 py-2 font-medium min-w-0 truncate max-w-[180px]">{c.product_name}</td>
                         <td className="px-3 py-2 text-right">
                           <Input
                             type="number"
@@ -422,16 +423,63 @@ function SalesPage() {
               </div>
             </div>
 
-            <Card className="p-4 bg-gradient-emerald text-primary-foreground flex items-center justify-between">
+            {/* Mobile cards */}
+            <div className="md:hidden space-y-3 max-h-80 overflow-y-auto">
+              {cart.length === 0 && (
+                <div className="rounded-lg border px-4 py-8 text-center text-muted-foreground">Aucun produit. Ajoutez-en au-dessus.</div>
+              )}
+              {cart.map((c) => (
+                <Card key={c.product_id} className="p-3 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{c.product_name}</div>
+                      <div className="text-xs text-muted-foreground">Max: {c.max_stock}</div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removeFromCart(c.product_id)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Qté</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={c.max_stock}
+                        value={c.quantity}
+                        onChange={(e) => updateCartItem(c.product_id, { quantity: Math.max(1, Number(e.target.value)) })}
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">P.U. (FCFA)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={c.unit_price}
+                        onChange={(e) => updateCartItem(c.product_id, { unit_price: Math.max(0, Number(e.target.value)) })}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2">
+                    <span className="text-xs text-muted-foreground">Sous-total</span>
+                    <span className="font-semibold">{formatFCFA(c.unit_price * c.quantity)}</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            <Card className="p-4 bg-gradient-emerald text-primary-foreground flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div>
                 <div className="text-xs opacity-80">Total ({cart.length} produit{cart.length > 1 ? "s" : ""}, {cart.reduce((a, c) => a + c.quantity, 0)} article{cart.reduce((a, c) => a + c.quantity, 0) > 1 ? "s" : ""})</div>
                 <div className="font-display text-3xl font-bold">{formatFCFA(cartTotal)}</div>
               </div>
             </Card>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCart([])} disabled={cart.length === 0}>Vider</Button>
-            <Button onClick={() => createGroup.mutate()} disabled={createGroup.isPending || cart.length === 0}>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setCart([])} disabled={cart.length === 0}>Vider</Button>
+            <Button className="w-full sm:w-auto" onClick={() => createGroup.mutate()} disabled={createGroup.isPending || cart.length === 0}>
               Valider la vente groupée
             </Button>
           </DialogFooter>

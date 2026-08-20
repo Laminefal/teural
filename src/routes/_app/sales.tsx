@@ -449,22 +449,6 @@ function SalesPage() {
         </DialogContent>
       </Dialog>
 
-      <BarcodeScanner
-        open={scanOpen}
-        onClose={() => setScanOpen(false)}
-        onDetected={(code) => {
-          setScanOpen(false);
-          const match = products.find((p) => p.barcode === code);
-          if (match) {
-            setProductId(match.id);
-            setUnitPrice("");
-            setOpen(true);
-            toast.success(`Produit: ${match.name}`);
-          } else {
-            toast.error(`Code "${code}" introuvable. Ajoutez-le à un produit.`);
-          }
-        }}
-      />
 
       <BarcodeScanner
         open={groupScanOpen}

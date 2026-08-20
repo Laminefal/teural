@@ -210,62 +210,13 @@ function SalesPage() {
         action={
           isOwner ? null : (
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setScanOpen(true)}>
+            <Button variant="outline" onClick={() => setGroupScanOpen(true)}>
               <ScanLine className="h-4 w-4" /> Scanner
             </Button>
-            <Button variant="outline" onClick={() => setGroupOpen(true)}>
+            <Button className="bg-gradient-emerald text-primary-foreground" onClick={() => setGroupOpen(true)}>
               <ShoppingCart className="h-4 w-4" /> Vente groupée
             </Button>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-gradient-emerald text-primary-foreground"><Plus className="h-4 w-4" /> Nouvelle vente</Button>
-              </DialogTrigger>
-              <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg max-h-[85dvh] overflow-y-auto p-4 sm:p-6">
-                <DialogHeader><DialogTitle>Enregistrer une vente</DialogTitle></DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label>Produit</Label>
-                    {selected ? (
-                      <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium">{selected.name}</div>
-                          <div className="text-xs text-muted-foreground">{formatFCFA(selected.price)} · stock {selected.stock}</div>
-                        </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => { setProductId(""); setUnitPrice(""); }}>
-                          Changer
-                        </Button>
-                      </div>
-                    ) : (
-                      <ProductPicker
-                        products={products as PickerProduct[]}
-                        autoFocus={open}
-                        onScan={() => setScanOpen(true)}
-                        onSelect={(p) => { setProductId(p.id); setUnitPrice(""); }}
-                      />
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label>Quantité</Label>
-                      <Input type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value)))} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Prix unitaire (FCFA)</Label>
-                      <Input type="number" placeholder={selected ? String(selected.price) : ""} value={unitPrice} onChange={(e) => setUnitPrice(e.target.value === "" ? "" : Number(e.target.value))} />
-                    </div>
-                  </div>
-                  {selected && (
-                    <Card className="p-4 bg-gradient-emerald text-primary-foreground">
-                      <div className="text-xs opacity-80">Total</div>
-                      <div className="font-display text-3xl font-bold">{formatFCFA(total)}</div>
-                    </Card>
-                  )}
-                </div>
-                <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
-                  <Button className="w-full sm:w-auto" onClick={() => create.mutate()} disabled={create.isPending || !selected}>Valider la vente</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+
           </div>
           )
         }

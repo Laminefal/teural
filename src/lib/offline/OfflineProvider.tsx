@@ -34,7 +34,7 @@ export function OfflineProvider({ shopId, children }: { shopId: string | null; c
       qc.invalidateQueries({ queryKey: ["debts"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     });
-    return unsub;
+    return () => { unsub(); };
   }, [qc]);
 
   useEffect(() => {

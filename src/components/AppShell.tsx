@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
+import { SyncIndicator } from "@/components/SyncIndicator";
 
 const baseNav = [
   { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
@@ -147,6 +148,7 @@ export function AppShell() {
       <div className="flex-1 flex flex-col min-w-0">
         <SuspendedBanner />
         <header className="hidden lg:flex items-center justify-end gap-3 px-8 py-3 border-b border-border/60 bg-card/40">
+          <SyncIndicator />
           <SubscriptionBadge />
         </header>
         <header className="lg:hidden flex items-center justify-between p-4 border-b border-border/60 bg-card">
@@ -155,6 +157,7 @@ export function AppShell() {
             <span className="font-display font-semibold truncate">{mobileTitle}</span>
           </div>
           <div className="flex items-center gap-2">
+            <SyncIndicator />
             <SubscriptionBadge />
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>

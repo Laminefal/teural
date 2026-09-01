@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ScanLine, Trash2, ShoppingCart, X, CalendarIcon, Ban, RotateCcw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { deleteSale, localProducts, localSales, recordSales, setSaleCancelled } from "@/lib/offline/repo";
 import { useAuth } from "@/lib/auth";
 import { useRole } from "@/lib/role";
 import { PageHeader } from "@/components/PageHeader";
@@ -88,24 +88,12 @@ function SalesPage() {
 
   const { data: products = [] } = useQuery({
     queryKey: ["products", user!.id],
-    queryFn: async () => {
-      const { data } = await supabase.from("products").select("*").order("name");
-      return data ?? [];
-    },
+    queryFn: async () => await localProducts(),
   });
 
   const { data: sales = [], isLoading } = useQuery({
     queryKey: ["sales", user!.id, from.toISOString(), to.toISOString()],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("sales")
-        .select("*")
-        .gte("created_at", from.toISOString())
-        .lte("created_at", to.toISOString())
-        .order("created_at", { ascending: false })
-        .limit(1000);
-      return data ?? [];
-    },
+    queryFn: async () => await localSales(from, to),
   });
 
   const addToCart = (pid: string, quantity: number) => {
@@ -148,17 +136,15 @@ function SalesPage() {
         if (item.quantity < 1) throw new Error(`Quantité invalide pour ${item.product_name}`);
         if (item.quantity > item.max_stock) throw new Error(`Stock insuffisant pour ${item.product_name} (${item.max_stock})`);
       }
-      const rows = cart.map((c) => ({
-        user_id: user!.id,
-        shop_id: shopId,
-        product_id: c.product_id,
-        product_name: c.product_name,
-        quantity: c.quantity,
-        unit_price: c.unit_price,
-        total: c.unit_price * c.quantity,
-      }));
-      const { error } = await supabase.from("sales").insert(rows);
-      if (error) throw error;
+      await recordSales(
+        cart.map((c) => ({
+          product_id: c.product_id,
+          product_name: c.product_name,
+          quantity: c.quantity,
+          unit_price: c.unit_price,
+        })),
+        { userId: user!.id, shopId },
+      );
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sales"] });
@@ -172,10 +158,7 @@ function SalesPage() {
   });
 
   const del = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("sales").delete().eq("id", id);
-      if (error) throw error;
-    },
+    mutationFn: async (id: string) => { await deleteSale(id); },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -185,11 +168,7 @@ function SalesPage() {
 
   const toggleCancel = useMutation({
     mutationFn: async ({ id, cancel }: { id: string; cancel: boolean }) => {
-      const { error } = await supabase
-        .from("sales")
-        .update({ is_cancelled: cancel })
-        .eq("id", id);
-      if (error) throw error;
+      await setSaleCancelled(id, cancel);
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["sales"] });

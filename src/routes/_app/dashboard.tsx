@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, Boxes, Receipt, TrendingUp, Wallet, AlertTriangle, CalendarIcon, CalendarClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { localExpenses, localProducts, localSales } from "@/lib/offline/repo";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { formatFCFA, formatDateTime, formatDate } from "@/lib/format";
@@ -58,18 +59,26 @@ function Dashboard() {
   const { data: stats } = useQuery({
     queryKey: ["dashboard", uid, from.toISOString(), to.toISOString()],
     queryFn: async () => {
-      const [salesRes, expRes, prodRes, profRes] = await Promise.all([
-        supabase.from("sales").select("*").gte("created_at", from.toISOString()).lte("created_at", to.toISOString()).order("created_at", { ascending: false }),
-        supabase.from("expenses").select("*").gte("created_at", from.toISOString()).lte("created_at", to.toISOString()),
-        supabase.from("products").select("*"),
-        supabase.from("profiles").select("shop_name, owner_name").eq("id", uid).maybeSingle(),
+      const [sales, expenses, products] = await Promise.all([
+        localSales(from, to),
+        localExpenses(from, to),
+        localProducts(),
       ]);
-      return {
-        sales: salesRes.data ?? [],
-        expenses: expRes.data ?? [],
-        products: prodRes.data ?? [],
-        profile: profRes.data,
-      };
+      let profile: { shop_name: string | null; owner_name: string | null } | null = null;
+      try {
+        const cacheKey = `teural.offline.profile.${uid}`;
+        if (typeof navigator !== "undefined" && navigator.onLine) {
+          const { data } = await supabase.from("profiles").select("shop_name, owner_name").eq("id", uid).maybeSingle();
+          profile = data ?? null;
+          if (profile) window.localStorage.setItem(cacheKey, JSON.stringify(profile));
+        } else {
+          const raw = window.localStorage.getItem(cacheKey);
+          profile = raw ? JSON.parse(raw) : null;
+        }
+      } catch {
+        profile = null;
+      }
+      return { sales, expenses, products, profile };
     },
   });
 

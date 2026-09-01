@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { RoleProvider, useRole } from "@/lib/role";
 import { AppShell } from "@/components/AppShell";
+import { OfflineProvider } from "@/lib/offline/OfflineProvider";
 
 export const Route = createFileRoute("/_app")({
   component: AuthGate,
@@ -26,7 +27,7 @@ function AuthGate() {
 }
 
 function SubscriptionGate() {
-  const { loading, hasActiveAccess, isOwner, isAdmin } = useRole();
+  const { loading, hasActiveAccess, isOwner, isAdmin, shopId } = useRole();
   const path = useRouterState({ select: (r) => r.location.pathname });
 
   if (loading) {
@@ -47,5 +48,9 @@ function SubscriptionGate() {
     return <Navigate to="/subscription" search={{ status: undefined }} />;
   }
 
-  return <AppShell />;
+  return (
+    <OfflineProvider shopId={shopId}>
+      <AppShell />
+    </OfflineProvider>
+  );
 }

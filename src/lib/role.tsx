@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,17 @@ import { checkIsAdmin } from "@/lib/admin.functions";
 
 type AppRole = "owner" | "agent";
 type SubStatus = "free" | "monthly" | "yearly";
+
+type RoleSnapshot = {
+  role: AppRole | null;
+  shopId: string | null;
+  shopName: string | null;
+  isSuspended: boolean;
+  subscriptionStatus: SubStatus;
+  subscriptionExpiresAt: string | null;
+  trialEndsAt: string | null;
+  isAdmin: boolean;
+};
 
 interface RoleCtx {
   role: AppRole | null;
@@ -28,35 +39,77 @@ const Ctx = createContext<RoleCtx>({
   subscriptionStatus: "free", subscriptionExpiresAt: null, trialEndsAt: null, hasActiveAccess: false,
 });
 
+const CACHE_PREFIX = "teural.offline.role.";
+
+function readCache(userId: string): RoleSnapshot | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(CACHE_PREFIX + userId);
+    return raw ? (JSON.parse(raw) as RoleSnapshot) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(userId: string, snap: RoleSnapshot) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(CACHE_PREFIX + userId, JSON.stringify(snap));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const checkAdmin = useServerFn(checkIsAdmin);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery<RoleSnapshot | null>({
     enabled: !!user,
     queryKey: ["role-subscription", user?.id],
+    retry: false,
     queryFn: async () => {
-      const [{ data: roleRow, error: rErr }, { data: profile, error: pErr }, adminRes] = await Promise.all([
-        supabase.from("user_roles").select("role, shop_id, shops(name, is_suspended)").eq("user_id", user!.id).maybeSingle(),
-        supabase.from("profiles").select("subscription_status, subscription_expires_at, trial_ends_at").eq("id", user!.id).maybeSingle(),
-        checkAdmin().catch(() => ({ isAdmin: false })),
-      ]);
-      if (rErr) throw rErr;
-      if (pErr) throw pErr;
-      const rawShops = (roleRow as { shops: unknown } | null)?.shops;
-      const shopRel = (Array.isArray(rawShops) ? rawShops[0] : rawShops) as { name: string; is_suspended: boolean } | null | undefined;
-      return {
-        role: (roleRow?.role as AppRole) ?? null,
-        shopId: (roleRow?.shop_id as string) ?? null,
-        shopName: shopRel?.name ?? null,
-        isSuspended: shopRel?.is_suspended ?? false,
-        subscriptionStatus: (profile?.subscription_status as SubStatus) ?? "free",
-        subscriptionExpiresAt: profile?.subscription_expires_at ?? null,
-        trialEndsAt: profile?.trial_ends_at ?? null,
-        isAdmin: !!adminRes?.isAdmin,
-      };
+      const cached = user ? readCache(user.id) : null;
+      // Offline: the device works on the snapshot saved during the last online session.
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (cached) return cached;
+      }
+      try {
+        const [{ data: roleRow, error: rErr }, { data: profile, error: pErr }, adminRes] = await Promise.all([
+          supabase.from("user_roles").select("role, shop_id, shops(name, is_suspended)").eq("user_id", user!.id).maybeSingle(),
+          supabase.from("profiles").select("subscription_status, subscription_expires_at, trial_ends_at").eq("id", user!.id).maybeSingle(),
+          checkAdmin().catch(() => ({ isAdmin: false })),
+        ]);
+        if (rErr) throw rErr;
+        if (pErr) throw pErr;
+        const rawShops = (roleRow as { shops: unknown } | null)?.shops;
+        const shopRel = (Array.isArray(rawShops) ? rawShops[0] : rawShops) as { name: string; is_suspended: boolean } | null | undefined;
+        const snap: RoleSnapshot = {
+          role: (roleRow?.role as AppRole) ?? null,
+          shopId: (roleRow?.shop_id as string) ?? null,
+          shopName: shopRel?.name ?? null,
+          isSuspended: shopRel?.is_suspended ?? false,
+          subscriptionStatus: (profile?.subscription_status as SubStatus) ?? "free",
+          subscriptionExpiresAt: profile?.subscription_expires_at ?? null,
+          trialEndsAt: profile?.trial_ends_at ?? null,
+          isAdmin: !!adminRes?.isAdmin,
+        };
+        writeCache(user!.id, snap);
+        return snap;
+      } catch (e) {
+        if (cached) return cached;
+        throw e;
+      }
     },
   });
+
+  // Refetch the role/subscription snapshot as soon as the connection comes back.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOnline = () => void refetch();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [refetch]);
 
   const now = new Date();
   const expires = data?.subscriptionExpiresAt ? new Date(data.subscriptionExpiresAt) : null;

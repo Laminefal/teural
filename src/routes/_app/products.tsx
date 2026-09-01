@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Pencil, Plus, ScanLine, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { createRow, localProducts, patchRow, removeRow } from "@/lib/offline/repo";
 import { useAuth } from "@/lib/auth";
 import { useRole } from "@/lib/role";
 import { PageHeader } from "@/components/PageHeader";
@@ -70,33 +70,24 @@ function ProductsPage() {
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products", user!.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("*").order("name");
-      if (error) throw error;
-      return data as Product[];
-    },
+    queryFn: async () => (await localProducts()) as unknown as Product[],
   });
 
   const upsert = useMutation({
     mutationFn: async (p: Partial<Product> & { id?: string }) => {
       if (p.id) {
-        const { error } = await supabase.from("products").update({
-          name: p.name, sku: p.sku, barcode: p.barcode, category: p.category,
-          price: p.price, cost: p.cost, stock: p.stock, expiry_date: p.expiry_date ?? null,
-          low_stock_threshold: p.low_stock_threshold, updated_at: new Date().toISOString(),
-        }).eq("id", p.id);
-        if (error) throw error;
+        await patchRow("products", p.id, {
+          name: p.name, sku: p.sku ?? null, barcode: p.barcode ?? null, category: p.category ?? null,
+          price: p.price ?? 0, cost: p.cost ?? 0, stock: p.stock ?? 0, expiry_date: p.expiry_date ?? null,
+          low_stock_threshold: p.low_stock_threshold ?? 5,
+        });
       } else {
         if (!shopId) throw new Error("Boutique introuvable");
-        const { error } = await supabase.from("products").insert({
-          user_id: user!.id, shop_id: shopId,
-          name: p.name!, sku: p.sku ?? null, barcode: p.barcode ?? null,
-          category: p.category ?? null,
+        await createRow("products", {
+          name: p.name!, sku: p.sku ?? null, barcode: p.barcode ?? null, category: p.category ?? null,
           price: p.price ?? 0, cost: p.cost ?? 0, stock: p.stock ?? 0,
-          low_stock_threshold: p.low_stock_threshold ?? 5,
-          expiry_date: p.expiry_date ?? null,
-        });
-        if (error) throw error;
+          low_stock_threshold: p.low_stock_threshold ?? 5, expiry_date: p.expiry_date ?? null,
+        }, { userId: user!.id, shopId });
       }
     },
     onSuccess: () => {
@@ -109,10 +100,7 @@ function ProductsPage() {
   });
 
   const del = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("products").delete().eq("id", id);
-      if (error) throw error;
-    },
+    mutationFn: async (id: string) => { await removeRow("products", id); },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });

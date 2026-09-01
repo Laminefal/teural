@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2, Ban, RotateCcw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { createRow, localExpenses, patchRow, removeRow } from "@/lib/offline/repo";
 import { useAuth } from "@/lib/auth";
 import { useRole } from "@/lib/role";
 import { PageHeader } from "@/components/PageHeader";
@@ -31,19 +31,16 @@ function ExpensesPage() {
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ["expenses", user!.id],
-    queryFn: async () => {
-      const { data } = await supabase.from("expenses").select("*").order("created_at", { ascending: false }).limit(200);
-      return data ?? [];
-    },
+    queryFn: async () => await localExpenses(),
   });
 
   const create = useMutation({
     mutationFn: async (vars: { category: string; description: string; amount: number }) => {
       if (!shopId) throw new Error("Boutique introuvable");
-      const { error } = await supabase.from("expenses").insert({
-        user_id: user!.id, shop_id: shopId, category: vars.category, description: vars.description || null, amount: vars.amount,
-      });
-      if (error) throw error;
+      await createRow("expenses", {
+        category: vars.category, description: vars.description || null, amount: vars.amount,
+        is_cancelled: false, cancelled_at: null,
+      }, { userId: user!.id, shopId });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses"] });
@@ -55,10 +52,7 @@ function ExpensesPage() {
   });
 
   const del = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("expenses").delete().eq("id", id);
-      if (error) throw error;
-    },
+    mutationFn: async (id: string) => { await removeRow("expenses", id); },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -67,8 +61,7 @@ function ExpensesPage() {
 
   const toggleCancel = useMutation({
     mutationFn: async ({ id, cancel }: { id: string; cancel: boolean }) => {
-      const { error } = await supabase.from("expenses").update({ is_cancelled: cancel }).eq("id", id);
-      if (error) throw error;
+      await patchRow("expenses", id, { is_cancelled: cancel, cancelled_at: cancel ? new Date().toISOString() : null });
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["expenses"] });

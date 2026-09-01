@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2, Check, RotateCcw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { createRow, localDebts, patchRow, removeRow } from "@/lib/offline/repo";
 import { useAuth } from "@/lib/auth";
 import { useRole } from "@/lib/role";
 import { PageHeader } from "@/components/PageHeader";
@@ -39,26 +39,20 @@ function DebtsPage() {
 
   const { data: debts = [], isLoading } = useQuery({
     queryKey: ["debts", user!.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("debts").select("*").order("is_paid").order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: async () => await localDebts(),
   });
 
   const create = useMutation({
     mutationFn: async (vars: { person_name: string; type: DebtType; amount: number; description: string; due_date: string }) => {
       if (!shopId) throw new Error("Boutique introuvable");
-      const { error } = await supabase.from("debts").insert({
-        user_id: user!.id,
-        shop_id: shopId,
+      await createRow("debts", {
         person_name: vars.person_name,
         type: vars.type,
         amount: vars.amount,
         description: vars.description || null,
         due_date: vars.due_date || null,
-      });
-      if (error) throw error;
+        is_paid: false,
+      }, { userId: user!.id, shopId });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["debts"] });
@@ -70,17 +64,13 @@ function DebtsPage() {
 
   const togglePaid = useMutation({
     mutationFn: async (vars: { id: string; is_paid: boolean }) => {
-      const { error } = await supabase.from("debts").update({ is_paid: vars.is_paid, updated_at: new Date().toISOString() }).eq("id", vars.id);
-      if (error) throw error;
+      await patchRow("debts", vars.id, { is_paid: vars.is_paid });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["debts"] }),
   });
 
   const del = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("debts").delete().eq("id", id);
-      if (error) throw error;
-    },
+    mutationFn: async (id: string) => { await removeRow("debts", id); },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["debts"] }),
   });
 

@@ -118,12 +118,15 @@ export type Database = {
           created_at: string
           expiry_date: string | null
           id: string
+          low_stock_qty: number
           low_stock_threshold: number
           name: string
           price: number
           shop_id: string
           sku: string | null
           stock: number
+          stock_qty: number
+          unit: string
           updated_at: string
           user_id: string
         }
@@ -134,12 +137,15 @@ export type Database = {
           created_at?: string
           expiry_date?: string | null
           id?: string
+          low_stock_qty?: number
           low_stock_threshold?: number
           name: string
           price?: number
           shop_id: string
           sku?: string | null
           stock?: number
+          stock_qty?: number
+          unit?: string
           updated_at?: string
           user_id: string
         }
@@ -150,12 +156,15 @@ export type Database = {
           created_at?: string
           expiry_date?: string | null
           id?: string
+          low_stock_qty?: number
           low_stock_threshold?: number
           name?: string
           price?: number
           shop_id?: string
           sku?: string | null
           stock?: number
+          stock_qty?: number
+          unit?: string
           updated_at?: string
           user_id?: string
         }
@@ -206,6 +215,7 @@ export type Database = {
           product_id: string | null
           product_name: string
           quantity: number
+          quantity_qty: number | null
           shop_id: string
           total: number
           unit_price: number
@@ -219,6 +229,7 @@ export type Database = {
           product_id?: string | null
           product_name: string
           quantity?: number
+          quantity_qty?: number | null
           shop_id: string
           total?: number
           unit_price?: number
@@ -232,6 +243,7 @@ export type Database = {
           product_id?: string | null
           product_name?: string
           quantity?: number
+          quantity_qty?: number | null
           shop_id?: string
           total?: number
           unit_price?: number

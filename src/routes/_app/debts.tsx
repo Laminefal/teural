@@ -142,11 +142,11 @@ function DebtsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <Card className="p-5">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">On me doit</div>
+          <div className="text-xs uppercase tracking-wider text-accent">On me doit</div>
           <div className="mt-1 text-2xl font-display font-semibold text-accent">{formatFCFA(totalCreance)}</div>
         </Card>
         <Card className="p-5">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Je dois</div>
+          <div className="text-xs uppercase tracking-wider text-destructive">Je dois</div>
           <div className="mt-1 text-2xl font-display font-semibold text-destructive">{formatFCFA(totalDette)}</div>
         </Card>
       </div>

@@ -2,7 +2,8 @@ import Dexie, { type Table } from "dexie";
 
 export type SyncTable = "products" | "sales" | "expenses" | "debts";
 
-export type Row = Record<string, unknown> & { id: string; shop_id?: string | null };
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export type Row = Record<string, any> & { id: string; shop_id?: string | null };
 
 export type OutboxOp = {
   opId: string;

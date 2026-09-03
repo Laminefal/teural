@@ -14,7 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
-import { formatDate, formatFCFA } from "@/lib/format";
+import { formatDate, formatFCFA, formatQty, isBulkUnit, UNIT_OPTIONS, unitPriceLabel, unitShort } from "@/lib/format";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_app/products")({
   component: ProductsPage,
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/_app/products")({
 type Product = {
   id: string; name: string; sku: string | null; barcode: string | null; category: string | null;
   price: number; cost: number; stock: number; low_stock_threshold: number; expiry_date: string | null;
+  unit: string; stock_qty: number; low_stock_qty: number;
 };
 
 function generateSKU(name: string): string {
@@ -48,6 +50,7 @@ function ProductsPage() {
   const [scanOpen, setScanOpen] = useState(false);
 
   const [formName, setFormName] = useState("");
+  const [formUnit, setFormUnit] = useState<string>("unite");
   const skuInputRef = useRef<HTMLInputElement>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const skuTouched = useRef(false);
@@ -56,11 +59,13 @@ function ProductsPage() {
     if (open) {
       if (!editing) {
         setFormName("");
+        setFormUnit("unite");
         skuTouched.current = false;
         if (skuInputRef.current) skuInputRef.current.value = "";
         if (barcodeInputRef.current) barcodeInputRef.current.value = "";
       } else {
         setFormName(editing.name);
+        setFormUnit(editing.unit ?? "unite");
         skuTouched.current = true;
         if (skuInputRef.current) skuInputRef.current.value = editing.sku ?? "";
         if (barcodeInputRef.current) barcodeInputRef.current.value = editing.barcode ?? "";
@@ -78,15 +83,20 @@ function ProductsPage() {
       if (p.id) {
         await patchRow("products", p.id, {
           name: p.name, sku: p.sku ?? null, barcode: p.barcode ?? null, category: p.category ?? null,
-          price: p.price ?? 0, cost: p.cost ?? 0, stock: p.stock ?? 0, expiry_date: p.expiry_date ?? null,
-          low_stock_threshold: p.low_stock_threshold ?? 5,
+          price: p.price ?? 0, cost: p.cost ?? 0, expiry_date: p.expiry_date ?? null,
+          unit: p.unit ?? "unite",
+          stock_qty: p.stock_qty ?? 0, stock: Math.ceil(p.stock_qty ?? 0),
+          low_stock_qty: p.low_stock_qty ?? 5, low_stock_threshold: Math.ceil(p.low_stock_qty ?? 5),
         });
       } else {
         if (!shopId) throw new Error("Boutique introuvable");
         await createRow("products", {
           name: p.name!, sku: p.sku ?? null, barcode: p.barcode ?? null, category: p.category ?? null,
-          price: p.price ?? 0, cost: p.cost ?? 0, stock: p.stock ?? 0,
-          low_stock_threshold: p.low_stock_threshold ?? 5, expiry_date: p.expiry_date ?? null,
+          price: p.price ?? 0, cost: p.cost ?? 0,
+          unit: p.unit ?? "unite",
+          stock_qty: p.stock_qty ?? 0, stock: Math.ceil(p.stock_qty ?? 0),
+          low_stock_qty: p.low_stock_qty ?? 5, low_stock_threshold: Math.ceil(p.low_stock_qty ?? 5),
+          expiry_date: p.expiry_date ?? null,
         }, { userId: user!.id, shopId });
       }
     },
@@ -128,8 +138,9 @@ function ProductsPage() {
       category: String(fd.get("category") || "") || null,
       price: Number(fd.get("price") || 0),
       cost: Number(fd.get("cost") || 0),
-      stock: Number(fd.get("stock") || 0),
-      low_stock_threshold: Number(fd.get("low_stock_threshold") || 5),
+      unit: formUnit,
+      stock_qty: Number(String(fd.get("stock_qty") || "0").replace(",", ".")),
+      low_stock_qty: Number(String(fd.get("low_stock_qty") || "5").replace(",", ".")),
       expiry_date: String(fd.get("expiry_date") || "") || null,
     });
   };
@@ -169,10 +180,34 @@ function ProductsPage() {
                       </Button>
                     </div>
                   </div>
-                  <Field label="Stock" name="stock" type="number" defaultValue={editing?.stock ?? 0} required />
-                  <Field label="Prix de vente (FCFA)" name="price" type="number" defaultValue={editing?.price ?? 0} required />
-                  <Field label="Coût d'achat (FCFA)" name="cost" type="number" defaultValue={editing?.cost ?? 0} />
-                  <Field label="Seuil alerte stock" name="low_stock_threshold" type="number" defaultValue={editing?.low_stock_threshold ?? 5} />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="unit">Unité de vente</Label>
+                    <Select value={formUnit} onValueChange={setFormUnit}>
+                      <SelectTrigger id="unit"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {UNIT_OPTIONS.map((u) => (
+                          <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Field
+                    label={isBulkUnit(formUnit) ? `Stock (${unitShort(formUnit)})` : "Stock"}
+                    name="stock_qty"
+                    type="number"
+                    step={isBulkUnit(formUnit) ? "0.001" : "1"}
+                    defaultValue={editing?.stock_qty ?? editing?.stock ?? 0}
+                    required
+                  />
+                  <Field label={unitPriceLabel(formUnit)} name="price" type="number" defaultValue={editing?.price ?? 0} required />
+                  <Field label={unitPriceLabel(formUnit, "Coût d'achat")} name="cost" type="number" defaultValue={editing?.cost ?? 0} />
+                  <Field
+                    label={isBulkUnit(formUnit) ? `Seuil alerte (${unitShort(formUnit)})` : "Seuil alerte stock"}
+                    name="low_stock_qty"
+                    type="number"
+                    step={isBulkUnit(formUnit) ? "0.001" : "1"}
+                    defaultValue={editing?.low_stock_qty ?? editing?.low_stock_threshold ?? 5}
+                  />
                   <Field label="Date d'expiration" name="expiry_date" type="date" defaultValue={editing?.expiry_date ?? ""} />
                 </div>
                 <DialogFooter>
@@ -209,7 +244,9 @@ function ProductsPage() {
                 <tr><td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">Aucun produit. Cliquez sur "Nouveau produit" pour commencer.</td></tr>
               )}
               {filtered.map((p) => {
-                const low = p.stock <= p.low_stock_threshold;
+                const qty = Number(p.stock_qty ?? p.stock ?? 0);
+                const threshold = Number(p.low_stock_qty ?? p.low_stock_threshold ?? 5);
+                const low = qty <= threshold;
                 return (
                   <tr key={p.id} className="hover:bg-muted/30">
                     <td className="px-4 py-3">
@@ -230,12 +267,12 @@ function ProductsPage() {
                     <td className="px-4 py-3 text-right font-medium">{formatFCFA(p.price)}</td>
                     <td className="px-4 py-3 text-right">
                       {low ? (
-                        <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />{p.stock}</Badge>
+                        <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" />{formatQty(qty, p.unit)}</Badge>
                       ) : (
-                        <span className="font-medium">{p.stock}</span>
+                        <span className="font-medium">{formatQty(qty, p.unit)}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">{formatFCFA(p.cost * p.stock)}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{formatFCFA(p.cost * qty)}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
                         {!isOwner && <Button variant="ghost" size="icon" onClick={() => { setEditing(p); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>}

@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { ProductPicker, type PickerProduct } from "@/components/ProductPicker";
-import { formatFCFA, formatDateTime } from "@/lib/format";
+import { formatFCFA, formatDateTime, formatQty, isBulkUnit, unitShort } from "@/lib/format";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,7 @@ type CartItem = {
   quantity: number;
   unit_price: number;
   max_stock: number;
+  unit: string;
 };
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); return x; }
@@ -99,12 +100,14 @@ function SalesPage() {
   const addToCart = (pid: string, quantity: number) => {
     const p = products.find((x) => x.id === pid);
     if (!p) return toast.error("Produit introuvable");
-    if (quantity < 1) return toast.error("Quantité invalide");
+    const bulk = isBulkUnit(p.unit as string);
+    const stock = Number(p.stock_qty ?? p.stock ?? 0);
+    if (quantity <= 0) return toast.error("Quantité invalide");
     setCart((prev) => {
       const existing = prev.find((c) => c.product_id === pid);
-      const newQty = (existing?.quantity ?? 0) + quantity;
-      if (newQty > p.stock) {
-        toast.error(`Stock insuffisant pour ${p.name} (${p.stock})`);
+      const newQty = Math.round(((existing?.quantity ?? 0) + quantity) * 1000) / 1000;
+      if (newQty > stock) {
+        toast.error(`Stock insuffisant pour ${p.name} (${formatQty(stock, p.unit as string)})`);
         return prev;
       }
       if (existing) {
@@ -113,9 +116,10 @@ function SalesPage() {
       return [...prev, {
         product_id: p.id,
         product_name: p.name,
-        quantity,
+        quantity: bulk ? quantity : Math.max(1, Math.round(quantity)),
         unit_price: Number(p.price),
-        max_stock: p.stock,
+        max_stock: stock,
+        unit: (p.unit as string) ?? "unite",
       }];
     });
   };
@@ -133,8 +137,8 @@ function SalesPage() {
       if (cart.length === 0) throw new Error("Ajoutez au moins un produit");
       if (!shopId) throw new Error("Boutique introuvable");
       for (const item of cart) {
-        if (item.quantity < 1) throw new Error(`Quantité invalide pour ${item.product_name}`);
-        if (item.quantity > item.max_stock) throw new Error(`Stock insuffisant pour ${item.product_name} (${item.max_stock})`);
+        if (item.quantity <= 0) throw new Error(`Quantité invalide pour ${item.product_name}`);
+        if (item.quantity > item.max_stock) throw new Error(`Stock insuffisant pour ${item.product_name} (${formatQty(item.max_stock, item.unit)})`);
       }
       await recordSales(
         cart.map((c) => ({
@@ -283,14 +287,18 @@ function SalesPage() {
                     )}
                     {cart.map((c) => (
                       <tr key={c.product_id}>
-                        <td className="px-3 py-2 font-medium min-w-0 truncate max-w-[180px]">{c.product_name}</td>
+                        <td className="px-3 py-2 font-medium min-w-0 truncate max-w-[180px]">
+                          {c.product_name}
+                          {unitShort(c.unit) && <span className="ml-1 text-xs text-muted-foreground">({unitShort(c.unit)})</span>}
+                        </td>
                         <td className="px-3 py-2 text-right">
                           <Input
                             type="number"
-                            min={1}
+                            min={0}
+                            step={isBulkUnit(c.unit) ? 0.001 : 1}
                             max={c.max_stock}
                             value={c.quantity}
-                            onChange={(e) => updateCartItem(c.product_id, { quantity: Math.max(1, Number(e.target.value)) })}
+                            onChange={(e) => updateCartItem(c.product_id, { quantity: Math.max(0, Number(e.target.value)) })}
                             className="h-8 text-right"
                           />
                         </td>
@@ -326,7 +334,7 @@ function SalesPage() {
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{c.product_name}</div>
-                      <div className="text-xs text-muted-foreground">Max: {c.max_stock}</div>
+                      <div className="text-xs text-muted-foreground">Max: {formatQty(c.max_stock, c.unit)}</div>
                     </div>
                     <Button variant="ghost" size="icon" className="shrink-0" onClick={() => removeFromCart(c.product_id)}>
                       <X className="h-4 w-4" />
@@ -334,18 +342,24 @@ function SalesPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Qté</Label>
+                      <Label className="text-xs text-muted-foreground">
+                        Qté{unitShort(c.unit) ? ` (${unitShort(c.unit)})` : ""}
+                      </Label>
                       <Input
                         type="number"
-                        min={1}
+                        min={0}
+                        step={isBulkUnit(c.unit) ? 0.001 : 1}
+                        inputMode="decimal"
                         max={c.max_stock}
                         value={c.quantity}
-                        onChange={(e) => updateCartItem(c.product_id, { quantity: Math.max(1, Number(e.target.value)) })}
+                        onChange={(e) => updateCartItem(c.product_id, { quantity: Math.max(0, Number(e.target.value)) })}
                         className="h-9"
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">P.U. (FCFA)</Label>
+                      <Label className="text-xs text-muted-foreground">
+                        P.U. (FCFA{unitShort(c.unit) ? ` / ${unitShort(c.unit)}` : ""})
+                      </Label>
                       <Input
                         type="number"
                         min={0}
@@ -418,7 +432,12 @@ function SalesPage() {
                     {s.product_name}
                     {s.is_cancelled && <span className="ml-2 inline-block rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-destructive no-underline">Annulée</span>}
                   </td>
-                  <td className="px-4 py-3 text-right">{s.quantity}</td>
+                  <td className="px-4 py-3 text-right">
+                    {formatQty(
+                      Number(s.quantity_qty ?? s.quantity),
+                      (products.find((p) => p.id === s.product_id)?.unit as string) ?? "unite",
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right">{formatFCFA(Number(s.unit_price))}</td>
                   <td className={cn("px-4 py-3 text-right font-semibold", !s.is_cancelled && "text-accent")}>{formatFCFA(Number(s.total))}</td>
                   <td className="px-4 py-3 text-right no-underline">

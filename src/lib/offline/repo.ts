@@ -89,8 +89,13 @@ async function adjustLocalStock(productId: string | null | undefined, delta: num
   if (!productId) return;
   const p = await db().products.get(productId);
   if (!p) return;
-  const stock = Math.max(Number(p['stock'] ?? 0) + delta, 0);
-  await db().products.put({ ...p, stock });
+  const current = Number(p['stock_qty'] ?? p['stock'] ?? 0);
+  const stockQty = Math.max(Math.round((current + delta) * 1000) / 1000, 0);
+  await db().products.put({ ...p, stock_qty: stockQty, stock: Math.ceil(stockQty) });
+}
+
+function saleQty(row: Record<string, unknown>) {
+  return Number(row['quantity_qty'] ?? row['quantity'] ?? 0);
 }
 
 export type SaleInput = {
@@ -107,7 +112,8 @@ export async function recordSales(items: SaleInput[], ctx: Ctx) {
       {
         product_id: item.product_id,
         product_name: item.product_name,
-        quantity: item.quantity,
+        quantity: Math.max(1, Math.ceil(item.quantity)),
+        quantity_qty: item.quantity,
         unit_price: item.unit_price,
         total: item.unit_price * item.quantity,
         is_cancelled: false,
@@ -126,7 +132,7 @@ export async function setSaleCancelled(id: string, cancel: boolean) {
   if (sale) {
     await adjustLocalStock(
       sale['product_id'] as string | null,
-      (cancel ? 1 : -1) * Number(sale['quantity'] ?? 0),
+      (cancel ? 1 : -1) * saleQty(sale),
     );
   }
   notifyLocalData();
@@ -136,7 +142,7 @@ export async function deleteSale(id: string) {
   const sale = await db().sales.get(id);
   await removeRow("sales", id);
   if (sale && !sale['is_cancelled']) {
-    await adjustLocalStock(sale['product_id'] as string | null, Number(sale['quantity'] ?? 0));
+    await adjustLocalStock(sale['product_id'] as string | null, saleQty(sale));
   }
   notifyLocalData();
 }

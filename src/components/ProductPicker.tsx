@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatFCFA } from "@/lib/format";
+import { formatFCFA, formatQty } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export type PickerProduct = {
@@ -16,7 +16,13 @@ export type PickerProduct = {
   category: string | null;
   price: number;
   stock: number;
+  unit?: string | null;
+  stock_qty?: number | null;
 };
+
+function stockOf(p: PickerProduct) {
+  return Number(p.stock_qty ?? p.stock ?? 0);
+}
 
 function normalize(s: string) {
   return s
@@ -87,9 +93,9 @@ export function ProductPicker({ products, onSelect, onScan, autoFocus, showFavor
 
   const favorites = useMemo(() => {
     const byId = new Map(products.map((p) => [p.id, p]));
-    const ranked = topIds.map((id) => byId.get(id)).filter((p): p is PickerProduct => !!p && p.stock > 0);
+    const ranked = topIds.map((id) => byId.get(id)).filter((p): p is PickerProduct => !!p && stockOf(p) > 0);
     if (ranked.length >= 6) return ranked.slice(0, 8);
-    const rest = products.filter((p) => p.stock > 0 && !ranked.some((r) => r.id === p.id));
+    const rest = products.filter((p) => stockOf(p) > 0 && !ranked.some((r) => r.id === p.id));
     return [...ranked, ...rest].slice(0, 8);
   }, [topIds, products]);
 
@@ -202,8 +208,10 @@ export function ProductPicker({ products, onSelect, onScan, autoFocus, showFavor
                 className="rounded-xl border bg-card p-3 text-left transition active:scale-[0.97] hover:border-primary/50 hover:bg-muted/40"
               >
                 <div className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-tight">{p.name}</div>
-                <div className="mt-1 text-sm font-semibold text-accent">{formatFCFA(p.price)}</div>
-                <div className="text-[11px] text-muted-foreground">Stock {p.stock}</div>
+                <div className="mt-1 text-sm font-semibold text-accent">
+                  {formatFCFA(p.price)}{p.unit && p.unit !== "unite" ? ` / ${p.unit}` : ""}
+                </div>
+                <div className="text-[11px] text-muted-foreground">Stock {formatQty(stockOf(p), p.unit)}</div>
               </button>
             ))}
           </div>
@@ -233,11 +241,13 @@ export function ProductPicker({ products, onSelect, onScan, autoFocus, showFavor
               </div>
             </div>
             <div className="text-right">
-              <div className="text-sm font-semibold">{formatFCFA(p.price)}</div>
-              {p.stock <= 0 ? (
+              <div className="text-sm font-semibold">
+                {formatFCFA(p.price)}{p.unit && p.unit !== "unite" ? ` / ${p.unit}` : ""}
+              </div>
+              {stockOf(p) <= 0 ? (
                 <Badge variant="destructive" className="mt-0.5 text-[10px]">Rupture</Badge>
               ) : (
-                <div className="text-[11px] text-muted-foreground">Stock {p.stock}</div>
+                <div className="text-[11px] text-muted-foreground">Stock {formatQty(stockOf(p), p.unit)}</div>
               )}
             </div>
           </button>

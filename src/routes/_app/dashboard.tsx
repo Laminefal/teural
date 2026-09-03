@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { localExpenses, localProducts, localSales } from "@/lib/offline/repo";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
-import { formatFCFA, formatDateTime, formatDate } from "@/lib/format";
+import { formatFCFA, formatDateTime, formatDate, formatQty } from "@/lib/format";
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -92,8 +92,10 @@ function Dashboard() {
   const revenue = activeSales.reduce((a, s) => a + Number(s.total), 0);
   const expensesTotal = activeExpenses.reduce((a, e) => a + Number(e.amount), 0);
   const profit = revenue - expensesTotal;
-  const inventoryValue = products.reduce((a, p) => a + Number(p.cost) * Number(p.stock), 0);
-  const lowStock = products.filter((p) => Number(p.stock) <= Number(p.low_stock_threshold));
+  const qtyOf = (p: Record<string, unknown>) => Number(p['stock_qty'] ?? p['stock'] ?? 0);
+  const thresholdOf = (p: Record<string, unknown>) => Number(p['low_stock_qty'] ?? p['low_stock_threshold'] ?? 5);
+  const inventoryValue = products.reduce((a, p) => a + Number(p.cost) * qtyOf(p), 0);
+  const lowStock = products.filter((p) => qtyOf(p) <= thresholdOf(p));
 
   const expiring = useMemo(() => {
     const now = startOfDay(new Date());
@@ -242,10 +244,10 @@ function Dashboard() {
                 <li key={p.id} className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{p.name}</div>
-                    <div className="text-xs text-muted-foreground">Seuil {p.low_stock_threshold}</div>
+                    <div className="text-xs text-muted-foreground">Seuil {formatQty(thresholdOf(p), p.unit as string)}</div>
                   </div>
                   <div className="flex items-center gap-1.5 text-destructive text-sm font-semibold">
-                    <AlertTriangle className="h-3.5 w-3.5" /> {p.stock}
+                    <AlertTriangle className="h-3.5 w-3.5" /> {formatQty(qtyOf(p), p.unit as string)}
                   </div>
                 </li>
               ))}
@@ -268,7 +270,7 @@ function Dashboard() {
               <div key={p.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{p.name}</div>
-                  <div className="text-xs text-muted-foreground">Expire le {formatDate(p.expiry_date)} · Stock {p.stock}</div>
+                  <div className="text-xs text-muted-foreground">Expire le {formatDate(p.expiry_date)} · Stock {formatQty(qtyOf(p), p.unit as string)}</div>
                 </div>
                 <Badge variant={p.days < 0 ? "destructive" : p.days <= 30 ? "destructive" : "secondary"} className="gap-1 shrink-0">
                   <CalendarClock className="h-3 w-3" />
@@ -295,7 +297,7 @@ function Dashboard() {
                     {s.product_name}
                     {s.is_cancelled && <span className="ml-2 inline-block rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-destructive no-underline">Annulée</span>}
                   </div>
-                  <div className="text-xs text-muted-foreground">{formatDateTime(s.created_at)} · ×{s.quantity}</div>
+                  <div className="text-xs text-muted-foreground">{formatDateTime(s.created_at)} · ×{formatQty(Number(s.quantity_qty ?? s.quantity))}</div>
                 </div>
                 <div className={cn("text-sm font-semibold", !s.is_cancelled && "text-accent")}>+{formatFCFA(Number(s.total))}</div>
               </div>

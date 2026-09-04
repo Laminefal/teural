@@ -27,7 +27,7 @@ export function getSyncState() {
 
 export function subscribeSync(cb: () => void) {
   listeners.add(cb);
-  return () => listeners.delete(cb);
+  return () => { listeners.delete(cb); };
 }
 
 function setState(patch: Partial<SyncState>) {
@@ -39,7 +39,7 @@ function setState(patch: Partial<SyncState>) {
 const dataListeners = new Set<() => void>();
 export function subscribeLocalData(cb: () => void) {
   dataListeners.add(cb);
-  return () => dataListeners.delete(cb);
+  return () => { dataListeners.delete(cb); };
 }
 export function notifyLocalData() {
   dataListeners.forEach((l) => l());
@@ -274,6 +274,15 @@ export async function requestSync(opts?: { silent?: boolean }): Promise<void> {
   } finally {
     syncing = false;
   }
+}
+
+/** Manual retry: clears the failure counters so blocked operations are pushed again. */
+export async function retrySync() {
+  if (!isBrowser()) return;
+  const stuck = await db().outbox.filter((op) => (op.tries ?? 0) > 0).toArray();
+  for (const op of stuck) await db().outbox.update(op.seq as number, { tries: 0, lastError: null });
+  setState({ lastError: null });
+  await requestSync();
 }
 
 let started = false;

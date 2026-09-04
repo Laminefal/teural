@@ -1,6 +1,6 @@
 import { CloudOff, Cloud, RefreshCw, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useSyncState } from "@/lib/offline/OfflineProvider";
-import { requestSync } from "@/lib/offline/sync";
+import { retrySync } from "@/lib/offline/sync";
 import { cn } from "@/lib/utils";
 
 export function SyncIndicator({ className }: { className?: string }) {
@@ -39,7 +39,7 @@ export function SyncIndicator({ className }: { className?: string }) {
   return (
     <button
       type="button"
-      onClick={() => void requestSync()}
+      onClick={() => void retrySync()}
       title={lastError ?? "Synchroniser maintenant"}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",

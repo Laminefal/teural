@@ -27,7 +27,7 @@ export function getSyncState() {
 
 export function subscribeSync(cb: () => void) {
   listeners.add(cb);
-  return () => listeners.delete(cb);
+  return () => { listeners.delete(cb); };
 }
 
 function setState(patch: Partial<SyncState>) {
@@ -39,7 +39,7 @@ function setState(patch: Partial<SyncState>) {
 const dataListeners = new Set<() => void>();
 export function subscribeLocalData(cb: () => void) {
   dataListeners.add(cb);
-  return () => dataListeners.delete(cb);
+  return () => { dataListeners.delete(cb); };
 }
 export function notifyLocalData() {
   dataListeners.forEach((l) => l());
@@ -136,11 +136,31 @@ async function pushOp(op: OutboxOp): Promise<void> {
   }
 }
 
-async function pushOutbox(): Promise<void> {
-  // strict FIFO so an insert always lands before its update/delete
-  for (;;) {
-    const op = await db().outbox.orderBy("seq").first();
-    if (!op) return;
+const MAX_TRIES = 5;
+
+/**
+ * Pushes queued operations in strict FIFO order (per row) so an insert always
+ * lands before its update/delete. Operations that failed too many times are
+ * skipped instead of blocking the whole queue forever.
+ */
+async function pushOutbox(): Promise<{ blocked: number; lastError: string | null }> {
+  let blocked = 0;
+  let lastError: string | null = null;
+  const blockedRows = new Set<string>();
+
+  const ops = await db().outbox.orderBy("seq").toArray();
+  for (const op of ops) {
+    if ((op.tries ?? 0) >= MAX_TRIES) {
+      blocked += 1;
+      lastError = op.lastError ?? lastError;
+      blockedRows.add(`${op.table}:${op.rowId}`);
+      continue;
+    }
+    // never reorder operations that target the same row
+    if (blockedRows.has(`${op.table}:${op.rowId}`)) {
+      blocked += 1;
+      continue;
+    }
     try {
       await pushOp(op);
       await db().outbox.delete(op.seq as number);
@@ -148,15 +168,15 @@ async function pushOutbox(): Promise<void> {
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       const tries = (op.tries ?? 0) + 1;
-      if (tries >= 5) {
-        // poison op: keep it out of the way but remember the failure
-        await db().outbox.update(op.seq as number, { tries, lastError: message });
-        throw new Error(`Opération bloquée (${op.table}): ${message}`);
-      }
       await db().outbox.update(op.seq as number, { tries, lastError: message });
-      throw new Error(message);
+      lastError = message;
+      blocked += 1;
+      blockedRows.add(`${op.table}:${op.rowId}`);
+      if (!navigator.onLine) break; // connection lost mid-sync: stop early
     }
   }
+
+  return { blocked, lastError };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -172,11 +192,16 @@ async function pullTable(table: SyncTable, shopId: string, replace: boolean, sin
   const store = db()[table];
   if (replace) {
     const keep = new Set(rows.map((r) => r.id));
+    // never drop rows that still have local operations waiting to be pushed
+    const queued = await db().outbox.where("table").equals(table).toArray();
+    queued.forEach((op) => keep.add(op.rowId));
     const localIds = (await store.toCollection().primaryKeys()) as string[];
     const toDelete = localIds.filter((id) => !keep.has(id));
     if (toDelete.length) await store.bulkDelete(toDelete);
   }
-  await store.bulkPut(rows);
+  // pending local edits must win over the server snapshot until they are pushed
+  const queuedIds = new Set((await db().outbox.where("table").equals(table).toArray()).map((o) => o.rowId));
+  await store.bulkPut(rows.filter((r) => !queuedIds.has(r.id)));
 }
 
 export async function pullAll(shopId: string) {
@@ -212,18 +237,35 @@ export async function requestSync(opts?: { silent?: boolean }): Promise<void> {
   syncing = true;
   setState({ online: true, status: "syncing", lastError: null });
   try {
-    await pushOutbox();
+    // no valid session (expired token while offline) → keep everything queued
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      await refreshCounters();
+      setState({ status: "online", lastError: null });
+      return;
+    }
+
+    const { blocked, lastError } = await pushOutbox();
     const remaining = await db().outbox.count();
-    if (remaining === 0) await pullAll(shopId);
+    // a blocked operation must never prevent reading fresh server data
+    if (remaining === blocked) await pullAll(shopId);
     await refreshCounters();
+    notifyLocalData();
+
+    if (lastError) {
+      setState({ status: navigator.onLine ? "error" : "offline", lastError });
+      return;
+    }
+
     const at = new Date().toISOString();
     setState({ status: "synced", lastSyncAt: at, lastError: null });
-    notifyLocalData();
     if (!opts?.silent) {
       // back to a plain "online" badge shortly after
       setTimeout(() => {
         if (state.status === "synced") setState({ status: "online" });
       }, 2500);
+    } else {
+      setState({ status: "online" });
     }
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -232,6 +274,15 @@ export async function requestSync(opts?: { silent?: boolean }): Promise<void> {
   } finally {
     syncing = false;
   }
+}
+
+/** Manual retry: clears the failure counters so blocked operations are pushed again. */
+export async function retrySync() {
+  if (!isBrowser()) return;
+  const stuck = await db().outbox.filter((op) => (op.tries ?? 0) > 0).toArray();
+  for (const op of stuck) await db().outbox.update(op.seq as number, { tries: 0, lastError: null });
+  setState({ lastError: null });
+  await requestSync();
 }
 
 let started = false;

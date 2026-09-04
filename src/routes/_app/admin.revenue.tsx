@@ -1,8 +1,9 @@
+import { Suspense, lazy } from "react";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, TrendingUp, TrendingDown, Wallet, Calendar, CreditCard, ReceiptText } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+const RevenueMonthlyChart = lazy(() => import("@/components/charts/RevenueMonthlyChart"));
 
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -72,18 +73,9 @@ function RevenuePage() {
               <h2 className="font-display text-lg font-semibold">Revenus mensuels — 12 derniers mois</h2>
             </div>
             <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={s.monthly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
-                  <Tooltip
-                    formatter={(v: number) => formatFCFA(v)}
-                    contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))", borderRadius: 8 }}
-                  />
-                  <Bar dataKey="revenue" fill="hsl(var(--accent))" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <Suspense fallback={<div className="h-full w-full animate-pulse rounded-lg bg-muted/50" />}>
+                <RevenueMonthlyChart data={s.monthly} />
+              </Suspense>
             </div>
           </Card>
 

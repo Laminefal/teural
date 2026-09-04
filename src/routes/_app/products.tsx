@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { BarcodeScanner } from "@/components/BarcodeScanner";
+import { LazyBarcodeScanner } from "@/components/LazyBarcodeScanner";
 import { formatDate, formatFCFA, formatQty, isBulkUnit, UNIT_OPTIONS, unitPriceLabel, unitShort } from "@/lib/format";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -287,7 +287,7 @@ function ProductsPage() {
         </div>
       </Card>
 
-      <BarcodeScanner
+      <LazyBarcodeScanner
         open={scanOpen}
         onClose={() => setScanOpen(false)}
         onDetected={(code) => {

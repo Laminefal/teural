@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import { BarcodeScanner } from "@/components/BarcodeScanner";
+import { LazyBarcodeScanner } from "@/components/LazyBarcodeScanner";
 import { ProductPicker, type PickerProduct } from "@/components/ProductPicker";
 import { formatFCFA, formatDateTime, formatQty, isBulkUnit, unitShort } from "@/lib/format";
 import { Calendar } from "@/components/ui/calendar";
@@ -394,7 +394,7 @@ function SalesPage() {
       </Dialog>
 
 
-      <BarcodeScanner
+      <LazyBarcodeScanner
         open={groupScanOpen}
         onClose={() => setGroupScanOpen(false)}
         onDetected={(code) => {

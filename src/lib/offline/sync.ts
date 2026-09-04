@@ -232,18 +232,35 @@ export async function requestSync(opts?: { silent?: boolean }): Promise<void> {
   syncing = true;
   setState({ online: true, status: "syncing", lastError: null });
   try {
-    await pushOutbox();
+    // no valid session (expired token while offline) → keep everything queued
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      await refreshCounters();
+      setState({ status: "online", lastError: null });
+      return;
+    }
+
+    const { blocked, lastError } = await pushOutbox();
     const remaining = await db().outbox.count();
-    if (remaining === 0) await pullAll(shopId);
+    // a blocked operation must never prevent reading fresh server data
+    if (remaining === blocked) await pullAll(shopId);
     await refreshCounters();
+    notifyLocalData();
+
+    if (lastError) {
+      setState({ status: navigator.onLine ? "error" : "offline", lastError });
+      return;
+    }
+
     const at = new Date().toISOString();
     setState({ status: "synced", lastSyncAt: at, lastError: null });
-    notifyLocalData();
     if (!opts?.silent) {
       // back to a plain "online" badge shortly after
       setTimeout(() => {
         if (state.status === "synced") setState({ status: "online" });
       }, 2500);
+    } else {
+      setState({ status: "online" });
     }
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

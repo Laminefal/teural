@@ -136,11 +136,31 @@ async function pushOp(op: OutboxOp): Promise<void> {
   }
 }
 
-async function pushOutbox(): Promise<void> {
-  // strict FIFO so an insert always lands before its update/delete
-  for (;;) {
-    const op = await db().outbox.orderBy("seq").first();
-    if (!op) return;
+const MAX_TRIES = 5;
+
+/**
+ * Pushes queued operations in strict FIFO order (per row) so an insert always
+ * lands before its update/delete. Operations that failed too many times are
+ * skipped instead of blocking the whole queue forever.
+ */
+async function pushOutbox(): Promise<{ blocked: number; lastError: string | null }> {
+  let blocked = 0;
+  let lastError: string | null = null;
+  const blockedRows = new Set<string>();
+
+  const ops = await db().outbox.orderBy("seq").toArray();
+  for (const op of ops) {
+    if ((op.tries ?? 0) >= MAX_TRIES) {
+      blocked += 1;
+      lastError = op.lastError ?? lastError;
+      blockedRows.add(`${op.table}:${op.rowId}`);
+      continue;
+    }
+    // never reorder operations that target the same row
+    if (blockedRows.has(`${op.table}:${op.rowId}`)) {
+      blocked += 1;
+      continue;
+    }
     try {
       await pushOp(op);
       await db().outbox.delete(op.seq as number);
@@ -148,15 +168,15 @@ async function pushOutbox(): Promise<void> {
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       const tries = (op.tries ?? 0) + 1;
-      if (tries >= 5) {
-        // poison op: keep it out of the way but remember the failure
-        await db().outbox.update(op.seq as number, { tries, lastError: message });
-        throw new Error(`Opération bloquée (${op.table}): ${message}`);
-      }
       await db().outbox.update(op.seq as number, { tries, lastError: message });
-      throw new Error(message);
+      lastError = message;
+      blocked += 1;
+      blockedRows.add(`${op.table}:${op.rowId}`);
+      if (!navigator.onLine) break; // connection lost mid-sync: stop early
     }
   }
+
+  return { blocked, lastError };
 }
 
 /* -------------------------------------------------------------------------- */

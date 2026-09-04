@@ -176,6 +176,7 @@ export type Database = {
           created_at: string
           id: string
           owner_name: string | null
+          phone: string | null
           shop_name: string
           subscription_expires_at: string | null
           subscription_status: string
@@ -187,6 +188,7 @@ export type Database = {
           created_at?: string
           id: string
           owner_name?: string | null
+          phone?: string | null
           shop_name?: string
           subscription_expires_at?: string | null
           subscription_status?: string
@@ -198,6 +200,7 @@ export type Database = {
           created_at?: string
           id?: string
           owner_name?: string | null
+          phone?: string | null
           shop_name?: string
           subscription_expires_at?: string | null
           subscription_status?: string

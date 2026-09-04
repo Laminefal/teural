@@ -192,11 +192,16 @@ async function pullTable(table: SyncTable, shopId: string, replace: boolean, sin
   const store = db()[table];
   if (replace) {
     const keep = new Set(rows.map((r) => r.id));
+    // never drop rows that still have local operations waiting to be pushed
+    const queued = await db().outbox.where("table").equals(table).toArray();
+    queued.forEach((op) => keep.add(op.rowId));
     const localIds = (await store.toCollection().primaryKeys()) as string[];
     const toDelete = localIds.filter((id) => !keep.has(id));
     if (toDelete.length) await store.bulkDelete(toDelete);
   }
-  await store.bulkPut(rows);
+  // pending local edits must win over the server snapshot until they are pushed
+  const queuedIds = new Set((await db().outbox.where("table").equals(table).toArray()).map((o) => o.rowId));
+  await store.bulkPut(rows.filter((r) => !queuedIds.has(r.id)));
 }
 
 export async function pullAll(shopId: string) {
